@@ -35,11 +35,15 @@ import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 public class ConsumerGroupInfo {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.BROKER_LOGGER_NAME);
     private final String groupName;
+    // subscriptionTable是个map，记录了Topic和订阅内容
     private final ConcurrentMap<String/* Topic */, SubscriptionData> subscriptionTable =
         new ConcurrentHashMap<String, SubscriptionData>();
+    // channelInfoTable,记录Consumer的物理连接
     private final ConcurrentMap<Channel, ClientChannelInfo> channelInfoTable =
         new ConcurrentHashMap<Channel, ClientChannelInfo>(16);
+    // ConsumeType是个枚举，表明两种消费方式（"PULL" 、  "PUSH"）
     private volatile ConsumeType consumeType;
+    // MessageModel也是个枚举，表明两种消费模式（CLUSTERING集群消费、BROADCASTING广播消费）
     private volatile MessageModel messageModel;
     private volatile ConsumeFromWhere consumeFromWhere;
     private volatile long lastUpdateTimestamp = System.currentTimeMillis();

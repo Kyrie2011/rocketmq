@@ -911,9 +911,11 @@ public class CommitLog {
     }
 
     public long getMinOffset() {
+        // MappedFileQueue的getFirstMappedFile方法
         MappedFile mappedFile = this.mappedFileQueue.getFirstMappedFile();
         if (mappedFile != null) {
             if (mappedFile.isAvailable()) {
+                // 获取该文件的Offset
                 return mappedFile.getFileFromOffset();
             } else {
                 return this.rollNextFile(mappedFile.getFileFromOffset());

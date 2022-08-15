@@ -77,13 +77,15 @@ public class NamesrvController {
 
         this.kvConfigManager.load();
 
+        // 构建Netty服务器
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
-
+        // netty 工作线程
         this.remotingExecutor =
             Executors.newFixedThreadPool(nettyServerConfig.getServerWorkerThreads(), new ThreadFactoryImpl("RemotingExecutorThread_"));
 
+        // 将工作线程池给netty
         this.registerProcessor();
-
+        // 定时检测不活跃的Broker
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -91,7 +93,7 @@ public class NamesrvController {
                 NamesrvController.this.routeInfoManager.scanNotActiveBroker();
             }
         }, 5, 10, TimeUnit.SECONDS);
-
+        // 创建定时任务 -- 每个10分钟打印以便KV配置
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -153,6 +155,7 @@ public class NamesrvController {
     }
 
     public void start() throws Exception {
+        // 启动netty服务器
         this.remotingServer.start();
 
         if (this.fileWatchService != null) {

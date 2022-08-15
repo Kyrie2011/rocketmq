@@ -115,10 +115,10 @@ public class BrokerController {
     private final NettyServerConfig nettyServerConfig;
     private final NettyClientConfig nettyClientConfig;
     private final MessageStoreConfig messageStoreConfig;
-    private final ConsumerOffsetManager consumerOffsetManager;
-    private final ConsumerManager consumerManager;
+    private final ConsumerOffsetManager consumerOffsetManager;  // 用来管理消费者的消费消息的进度，通过一张map来存储
+    private final ConsumerManager consumerManager;   // 管理Consumer，主要通过一张map来缓存
     private final ConsumerFilterManager consumerFilterManager;
-    private final ProducerManager producerManager;
+    private final ProducerManager producerManager;   // 管理Producer，主要通过一张map来缓存
     private final ClientHousekeepingService clientHousekeepingService;
     private final PullMessageProcessor pullMessageProcessor;
     private final PullRequestHoldService pullRequestHoldService;
@@ -146,7 +146,7 @@ public class BrokerController {
     private MessageStore messageStore;
     private RemotingServer remotingServer;
     private RemotingServer fastRemotingServer;
-    private TopicConfigManager topicConfigManager;
+    private TopicConfigManager topicConfigManager;   // 管理Topic和消息队列的信息，主要通过一张map来缓存
     private ExecutorService sendMessageExecutor;
     private ExecutorService pullMessageExecutor;
     private ExecutorService replyMessageExecutor;
@@ -232,14 +232,18 @@ public class BrokerController {
     }
 
     public boolean initialize() throws CloneNotSupportedException {
+        //完成对.../store/config/topics.json 文件的加载
         boolean result = this.topicConfigManager.load();
-
+        //完成对.../store/config/consumerOffset.json 文件的加载
         result = result && this.consumerOffsetManager.load();
+        //完成对.../store/config/subscriptionGroup.json 文件的加载
         result = result && this.subscriptionGroupManager.load();
+        //完成对.../store/config/consumerFilter.json 文件的加载
         result = result && this.consumerFilterManager.load();
 
         if (result) {
             try {
+                // 创建一个DefaultMessageStore，这是Broker的核心存储
                 this.messageStore =
                     new DefaultMessageStore(this.messageStoreConfig, this.brokerStatsManager, this.messageArrivingListener,
                         this.brokerConfig);
@@ -257,13 +261,13 @@ public class BrokerController {
                 log.error("Failed to initialize", e);
             }
         }
-
+        // 加载CommitLog和ConsumeQueue对应的文件
         result = result && this.messageStore.load();
 
         if (result) {
             this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.clientHousekeepingService);
             NettyServerConfig fastConfig = (NettyServerConfig) this.nettyServerConfig.clone();
-            fastConfig.setListenPort(nettyServerConfig.getListenPort() - 2);
+            fastConfig.setListenPort(nettyServerConfig.getListenPort() - 2);  // VIP通道
             this.fastRemotingServer = new NettyRemotingServer(fastConfig, this.clientHousekeepingService);
             this.sendMessageExecutor = new BrokerFixedThreadPoolExecutor(
                 this.brokerConfig.getSendMessageThreadPoolNums(),
@@ -329,7 +333,10 @@ public class BrokerController {
                 Executors.newFixedThreadPool(this.brokerConfig.getConsumerManageThreadPoolNums(), new ThreadFactoryImpl(
                     "ConsumerManageThread_"));
 
+            // registerProcessor
             this.registerProcessor();
+
+            //在完成 registerProcessor后，会创建8个定时任务
 
             final long initialDelay = UtilAll.computeNextMorningTimeMillis() - System.currentTimeMillis();
             final long period = 1000 * 60 * 60 * 24;
@@ -337,6 +344,7 @@ public class BrokerController {
                 @Override
                 public void run() {
                     try {
+                        // 定时打印 Broker的状态
                         BrokerController.this.getBrokerStats().record();
                     } catch (Throwable e) {
                         log.error("schedule record error.", e);
@@ -416,20 +424,25 @@ public class BrokerController {
                     }
                 }, 1000 * 10, 1000 * 60 * 2, TimeUnit.MILLISECONDS);
             }
-
+            // 非DLeger模式下
             if (!messageStoreConfig.isEnableDLegerCommitLog()) {
+                // 若是SLAVE
                 if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {
+                    // 是否设置了HA的Master地址
                     if (this.messageStoreConfig.getHaMasterAddress() != null && this.messageStoreConfig.getHaMasterAddress().length() >= 6) {
+                        // 设置了Master地址要通过updateHaMasterAddress方法向更新Master地址
                         this.messageStore.updateHaMasterAddress(this.messageStoreConfig.getHaMasterAddress());
                         this.updateMasterHAServerAddrPeriodically = false;
                     } else {
                         this.updateMasterHAServerAddrPeriodically = true;
                     }
                 } else {
+                    // 是Master
                     this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                         @Override
                         public void run() {
                             try {
+                                // 8. 定时打印slave落后的字节数
                                 BrokerController.this.printMasterAndSlaveDiff();
                             } catch (Throwable e) {
                                 log.error("schedule printMasterAndSlaveDiff error.", e);
@@ -479,8 +492,11 @@ public class BrokerController {
                     log.warn("FileWatchService created error, can't load the certificate dynamically");
                 }
             }
+            // 加载事务需要的实例
             initialTransaction();
+            // 创建ACL权限检查
             initialAcl();
+            // 注册配置了的RPC钩子,加载"META-INF/service/org.apache.rocketmq.remoting.RPCHook"下的配置的实体类
             initialRpcHooks();
         }
         return result;
@@ -850,6 +866,7 @@ public class BrokerController {
 
     public void start() throws Exception {
         if (this.messageStore != null) {
+            // 启动DefaultMessageStore的start方法
             this.messageStore.start();
         }
 
@@ -938,8 +955,10 @@ public class BrokerController {
                 TopicConfig tmp =
                     new TopicConfig(topicConfig.getTopicName(), topicConfig.getReadQueueNums(), topicConfig.getWriteQueueNums(),
                         this.brokerConfig.getBrokerPermission());
+                // 将topic的信息塞进topicConfigTable缓存中,topicConfig.getTopicName() -> topic
                 topicConfigTable.put(topicConfig.getTopicName(), tmp);
             }
+            // broker会定时发送心跳将topicConfigTable发送给nameserver进行注册
             topicConfigWrapper.setTopicConfigTable(topicConfigTable);
         }
 
@@ -948,6 +967,7 @@ public class BrokerController {
             this.brokerConfig.getBrokerName(),
             this.brokerConfig.getBrokerId(),
             this.brokerConfig.getRegisterBrokerTimeoutMills())) {
+            // broker会定时发送心跳将topicConfigTable发送给nameserver进行注册
             doRegisterBrokerAll(checkOrderConfig, oneway, topicConfigWrapper);
         }
     }

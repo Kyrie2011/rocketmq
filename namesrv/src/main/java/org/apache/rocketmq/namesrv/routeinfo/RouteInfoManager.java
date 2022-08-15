@@ -439,15 +439,18 @@ public class RouteInfoManager {
         return null;
     }
 
+    // 扫描不活跃的Broker，并剔除下线
     public void scanNotActiveBroker() {
         Iterator<Entry<String, BrokerLiveInfo>> it = this.brokerLiveTable.entrySet().iterator();
         while (it.hasNext()) {
             Entry<String, BrokerLiveInfo> next = it.next();
+            // 当前时间 大于 broker的最后一次的心跳（活跃）时间 + BROKER_CHANNEL_EXPIRED_TIME时间（默认120s）
             long last = next.getValue().getLastUpdateTimestamp();
             if ((last + BROKER_CHANNEL_EXPIRED_TIME) < System.currentTimeMillis()) {
                 RemotingUtil.closeChannel(next.getValue().getChannel());
                 it.remove();
                 log.warn("The broker channel expired, {} {}ms", next.getKey(), BROKER_CHANNEL_EXPIRED_TIME);
+                // broker下线，移除掉broker
                 this.onChannelDestroy(next.getKey(), next.getValue().getChannel());
             }
         }

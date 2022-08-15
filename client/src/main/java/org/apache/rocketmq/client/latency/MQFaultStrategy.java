@@ -56,7 +56,9 @@ public class MQFaultStrategy {
     }
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
+        // Producer消息发送容错策略。默认情况下容错策略关闭，即sendLatencyFaultEnable=false
         if (this.sendLatencyFaultEnable) {
+            // 容错策略选择消息队列逻辑
             try {
                 int index = tpInfo.getSendWhichQueue().incrementAndGet();
                 for (int i = 0; i < tpInfo.getMessageQueueList().size(); i++) {
@@ -86,10 +88,19 @@ public class MQFaultStrategy {
 
             return tpInfo.selectOneMessageQueue();
         }
-
+        /**
+         * 未开启容错策略选择消息队列逻辑
+         * 获得lastBrokerName 对应的一个消息队列，不考虑该队列的可用性
+         */
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 
+    /**
+     * 更新延迟容错信息，当Producer发送消息时间过长，则逻辑认为N秒内不可用
+     * @param brokerName
+     * @param currentLatency
+     * @param isolation
+     */
     public void updateFaultItem(final String brokerName, final long currentLatency, boolean isolation) {
         if (this.sendLatencyFaultEnable) {
             long duration = computeNotAvailableDuration(isolation ? 30000 : currentLatency);

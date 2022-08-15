@@ -46,7 +46,7 @@ public class TopicConfigManager extends ConfigManager {
     private static final int SCHEDULE_TOPIC_QUEUE_NUM = 18;
 
     private transient final Lock topicConfigTableLock = new ReentrantLock();
-
+    //  键是Topic，值TopicConfig用来记录对应的消息队列的个数
     private final ConcurrentMap<String, TopicConfig> topicConfigTable =
         new ConcurrentHashMap<String, TopicConfig>(1024);
     private final DataVersion dataVersion = new DataVersion();
@@ -197,7 +197,7 @@ public class TopicConfigManager extends ConfigManager {
                         log.warn("Create new topic failed, because the default topic[{}] not exist. producer:[{}]",
                             defaultTopic, remoteAddress);
                     }
-
+                    //继承默认topic信息，创建新的Topic。 Create new topic by default topic
                     if (topicConfig != null) {
                         log.info("Create new topic by default topic:[{}] config:[{}] producer:[{}]",
                             defaultTopic, topicConfig, remoteAddress);
@@ -219,6 +219,7 @@ public class TopicConfigManager extends ConfigManager {
         }
 
         if (createNew) {
+            // 创建新的topic
             this.brokerController.registerBrokerAll(false, true, true);
         }
 
