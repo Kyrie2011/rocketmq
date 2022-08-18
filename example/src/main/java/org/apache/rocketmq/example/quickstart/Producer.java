@@ -31,8 +31,8 @@ public class Producer {
         /*
          * Instantiate with a producer group name.
          */
-        DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name");
-        producer.setNamesrvAddr("127.0.0.1:9876");
+        DefaultMQProducer producer = new DefaultMQProducer("test_producer_group");  // 实例化消息生产者
+        producer.setNamesrvAddr("127.0.0.1:9876");  // 设置NameServer的地址
         /*
          * Specify name server addresses.
          * <p/>
@@ -51,12 +51,9 @@ public class Producer {
         // 启动生产者实例
         producer.start();
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 5; i++) {
             try {
-
-                /*
-                 * Create a message instance, specifying topic, tag and message body.
-                 */
+                // 创建消息，并指定Topic，Tag和消息体
                 Message msg = new Message("TopicTest" /* Topic */,
                     "TagA" /* Tag */,
                     ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
@@ -65,6 +62,7 @@ public class Producer {
                 /*
                  * Call send message to deliver message to one of brokers.
                  */
+                // 发送消息到一个Broker
                 SendResult sendResult = producer.send(msg);
                 /*
                  * There are different ways to send message, if you don't care about the send result,you can use this way

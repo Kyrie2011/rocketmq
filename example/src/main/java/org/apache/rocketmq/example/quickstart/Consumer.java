@@ -35,8 +35,8 @@ public class Consumer {
         /*
          * Instantiate with specified consumer group name.
          */
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("please_rename_unique_group_name_4");
-        consumer.setNamesrvAddr("127.0.0.1:9876");
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("test_consumer_group");  // 实例化消费者
+        consumer.setNamesrvAddr("127.0.0.1:9876"); // 设置NameServer的地址
         /*
          * Specify name server addresses.
          * <p/>
@@ -57,17 +57,20 @@ public class Consumer {
         /*
          * Subscribe one more more topics to consume.
          */
+        // 订阅一个或者多个Topic，以及Tag来过滤需要消费的消息
         consumer.subscribe("TopicTest", "*");
 
         /*
          *  Register callback to execute on arrival of messages fetched from brokers.
          */
+        // 注册回调实现类，来处理从broker拉取回来的消息
         consumer.registerMessageListener(new MessageListenerConcurrently() {
 
             @Override
             public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs,
                 ConsumeConcurrentlyContext context) {
                 System.out.printf("%s Receive New Messages: %s %n", Thread.currentThread().getName(), msgs);
+                // 标记消息已成功消费
                 return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
             }
         });
@@ -75,6 +78,7 @@ public class Consumer {
         /*
          *  Launch the consumer instance.
          */
+        // 启动消费者实例
         consumer.start();
 
         System.out.printf("Consumer Started.%n");
