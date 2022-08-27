@@ -38,7 +38,7 @@ public class ProducerDemo {
         for (int i = 0; i < 10; i++) {
             // 加个时间前缀
             String body = dateStr + " Hello RocketMQ " + orderList.get(i);
-            Message msg = new Message("TopicTest", tags[i % tags.length], "KEY" + i, body.getBytes());
+            Message msg = new Message("TopicTestOrder", tags[i % tags.length], "KEY" + i, body.getBytes());
 
             SendResult sendResult = producer.send(msg, new MessageQueueSelector() {
                 @Override
@@ -55,7 +55,7 @@ public class ProducerDemo {
                     body));
         }
 
-        producer.shutdown();
+        // producer.shutdown();
 
     }
 

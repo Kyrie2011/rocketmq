@@ -31,7 +31,7 @@ public class Producer {
         /*
          * Instantiate with a producer group name.
          */
-        DefaultMQProducer producer = new DefaultMQProducer("test_producer_group");  // 实例化消息生产者
+        DefaultMQProducer producer = new DefaultMQProducer("test_producer_group666");  // 实例化消息生产者
         producer.setNamesrvAddr("127.0.0.1:9876");  // 设置NameServer的地址
         /*
          * Specify name server addresses.
@@ -51,10 +51,10 @@ public class Producer {
         // 启动生产者实例
         producer.start();
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 1; i++) {
             try {
                 // 创建消息，并指定Topic，Tag和消息体
-                Message msg = new Message("TopicTest" /* Topic */,
+                Message msg = new Message("TopicTest9876" /* Topic */,
                     "TagA" /* Tag */,
                     ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
                 );

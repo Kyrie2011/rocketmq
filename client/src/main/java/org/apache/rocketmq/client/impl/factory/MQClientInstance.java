@@ -234,15 +234,15 @@ public class MQClientInstance {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
                     // Start request-response channel
-                    this.mQClientAPIImpl.start();
+                    this.mQClientAPIImpl.start();  // 启动客户端本地的服务线程
                     // Start various schedule tasks
-                    this.startScheduledTask();
+                    this.startScheduledTask();  // 启动各种调度任务
                     // Start pull service
-                    this.pullMessageService.start();
+                    this.pullMessageService.start(); // 启动拉取消息服务
                     // Start rebalance service
-                    this.rebalanceService.start();
+                    this.rebalanceService.start();  // 重新负载均衡服务
                     // Start push service
-                    this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
+                    this.defaultMQProducer.getDefaultMQProducerImpl().start(false);  // 重新做一次启动
                     log.info("the client factory [{}] start OK", this.clientId);
                     this.serviceState = ServiceState.RUNNING;
                     break;
@@ -469,7 +469,9 @@ public class MQClientInstance {
     public void sendHeartbeatToAllBrokerWithLock() {
         if (this.lockHeartbeat.tryLock()) {
             try {
+                // 向broker发送心跳包
                 this.sendHeartbeatToAllBroker();
+                //
                 this.uploadFilterClassSource();
             } catch (final Exception e) {
                 log.error("sendHeartbeatToAllBroker exception", e);
@@ -625,6 +627,7 @@ public class MQClientInstance {
                             }
                         }
                     } else {
+                        System.out.println("第一次拉取topic的路由信息：" + topic);
                         topicRouteData = this.mQClientAPIImpl.getTopicRouteInfoFromNameServer(topic, clientConfig.getMqClientApiTimeout());
                     }
                     if (topicRouteData != null) {
@@ -682,6 +685,7 @@ public class MQClientInstance {
                         log.warn("updateTopicRouteInfoFromNameServer, getTopicRouteInfoFromNameServer return null, Topic: {}. [{}]", topic, this.clientId);
                     }
                 } catch (MQClientException e) {
+                    System.out.println("-------首次拉取"+ topic + "的路由信息：" + e);
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         log.warn("updateTopicRouteInfoFromNameServer Exception", e);
                     }
@@ -924,8 +928,9 @@ public class MQClientInstance {
         if (null == group || null == producer) {
             return false;
         }
-
+        System.out.println("注册producer之前：" + this.producerTable);
         MQProducerInner prev = this.producerTable.putIfAbsent(group, producer);
+        System.out.println("注册producer之后：" + this.producerTable);
         if (prev != null) {
             log.warn("the producer group[{}] exist already.", group);
             return false;

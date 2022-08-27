@@ -35,6 +35,7 @@ public class Consumer {
         /*
          * Instantiate with specified consumer group name.
          */
+        // push模式消费
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("test_consumer_group");  // 实例化消费者
         consumer.setNamesrvAddr("127.0.0.1:9876"); // 设置NameServer的地址
         /*
