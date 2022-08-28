@@ -81,6 +81,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
     @Override
     public RemotingCommand processRequest(final ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
+        // 处理拉取消息的请求
         return this.processRequest(ctx.channel(), request, true);
     }
 
@@ -95,7 +96,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
         final PullMessageResponseHeader responseHeader = (PullMessageResponseHeader) response.readCustomHeader();
         final PullMessageRequestHeader requestHeader =
             (PullMessageRequestHeader) request.decodeCommandCustomHeader(PullMessageRequestHeader.class);
-
+        // 设置与requestId对应的标识
         response.setOpaque(request.getOpaque());
 
         log.debug("receive PullMessage request command, {}", request);
@@ -156,7 +157,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                 subscriptionData = FilterAPI.build(
                     requestHeader.getTopic(), requestHeader.getSubscription(), requestHeader.getExpressionType()
                 );
-                if (!ExpressionType.isTagType(subscriptionData.getExpressionType())) {
+                if (!ExpressionType.isTagType(subscriptionData.getExpressionType())) {  // 消息过滤
                     consumerFilterData = ConsumerFilterManager.build(
                         requestHeader.getTopic(), requestHeader.getConsumerGroup(), requestHeader.getSubscription(),
                         requestHeader.getExpressionType(), requestHeader.getSubVersion()
@@ -227,7 +228,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             return response;
         }
 
-        MessageFilter messageFilter;
+        MessageFilter messageFilter;  // 消息过滤器
         if (this.brokerController.getBrokerConfig().isFilterSupportRetry()) {
             messageFilter = new ExpressionForRetryMessageFilter(subscriptionData, consumerFilterData,
                 this.brokerController.getConsumerFilterManager());
@@ -237,6 +238,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
         }
 
         final GetMessageResult getMessageResult =
+                // 获取消息
             this.brokerController.getMessageStore().getMessage(requestHeader.getConsumerGroup(), requestHeader.getTopic(),
                 requestHeader.getQueueId(), requestHeader.getQueueOffset(), requestHeader.getMaxMsgNums(), messageFilter);
         if (getMessageResult != null) {
@@ -378,8 +380,10 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         getMessageResult.getBufferTotalSize());
 
                     this.brokerController.getBrokerStatsManager().incBrokerGetNums(getMessageResult.getMessageCount());
+                    // 根据isTransferMsgByHeap的设置情况，选择下面两种方式之一来真正读取GetMessageResult的消息内容返回至Consumer端
                     if (this.brokerController.getBrokerConfig().isTransferMsgByHeap()) {
                         final long beginTimeMills = this.brokerController.getMessageStore().now();
+                        // JDK NIO
                         final byte[] r = this.readGetMessageResult(getMessageResult, requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId());
                         this.brokerController.getBrokerStatsManager().incGroupGetLatency(requestHeader.getConsumerGroup(),
                             requestHeader.getTopic(), requestHeader.getQueueId(),
@@ -387,6 +391,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         response.setBody(r);
                     } else {
                         try {
+                            // Netty的Zero-Copy
                             FileRegion fileRegion =
                                 new ManyMessageTransfer(response.encodeHeader(getMessageResult.getBufferTotalSize()), getMessageResult);
                             channel.writeAndFlush(fileRegion).addListener(new ChannelFutureListener() {
@@ -466,6 +471,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
         storeOffsetEnable = storeOffsetEnable
             && this.brokerController.getMessageStoreConfig().getBrokerRole() != BrokerRole.SLAVE;
         if (storeOffsetEnable) {
+            // 持久化消息消费的offset偏移量进度
             this.brokerController.getConsumerOffsetManager().commitOffset(RemotingHelper.parseChannelRemoteAddr(channel),
                 requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId(), requestHeader.getCommitOffset());
         }

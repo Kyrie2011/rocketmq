@@ -77,6 +77,7 @@ public class PullMessageService extends ServiceThread {
     }
 
     private void pullMessage(final PullRequest pullRequest) {
+        // 选择消费者
         final MQConsumerInner consumer = this.mQClientFactory.selectConsumer(pullRequest.getConsumerGroup());
         if (consumer != null) {
             DefaultMQPushConsumerImpl impl = (DefaultMQPushConsumerImpl) consumer;
@@ -89,10 +90,12 @@ public class PullMessageService extends ServiceThread {
     @Override
     public void run() {
         log.info(this.getServiceName() + " service started");
-
+        // 拉取消息
         while (!this.isStopped()) {
             try {
+                // PullMessageService不断地从阻塞队列pullRequestQueue中获取PullRequest请求
                 PullRequest pullRequest = this.pullRequestQueue.take();
+                // 通过网络通信模块发送Pull消息的RPC请求给Broker端
                 this.pullMessage(pullRequest);
             } catch (InterruptedException ignored) {
             } catch (Exception e) {

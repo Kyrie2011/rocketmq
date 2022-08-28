@@ -549,10 +549,12 @@ public class DefaultMessageStore implements MessageStore {
         GetMessageResult getResult = null;
 
         final long maxOffsetPy = this.commitLog.getMaxOffset();
-
+        // 获取ConsumeQueue
         ConsumeQueue consumeQueue = findConsumeQueue(topic, queueId);
         if (consumeQueue != null) {
+            // 获取队列中最小的偏移量
             minOffset = consumeQueue.getMinOffsetInQueue();
+            // 获取队列中最大的偏移量
             maxOffset = consumeQueue.getMaxOffsetInQueue();
 
             if (maxOffset == 0) {
@@ -572,6 +574,7 @@ public class DefaultMessageStore implements MessageStore {
                     nextBeginOffset = nextOffsetCorrection(offset, maxOffset);
                 }
             } else {
+                // 使用MappedFile获取内存映射结果（ConsumeQueue数据）
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
@@ -588,6 +591,7 @@ public class DefaultMessageStore implements MessageStore {
 
                         ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
                         for (; i < bufferConsumeQueue.getSize() && i < maxFilterMessageCount; i += ConsumeQueue.CQ_STORE_UNIT_SIZE) {
+                            // 计算offsetPy/sizePy的值
                             long offsetPy = bufferConsumeQueue.getByteBuffer().getLong();
                             int sizePy = bufferConsumeQueue.getByteBuffer().getInt();
                             long tagsCode = bufferConsumeQueue.getByteBuffer().getLong();
@@ -598,7 +602,7 @@ public class DefaultMessageStore implements MessageStore {
                                 if (offsetPy < nextPhyFileStartOffset)
                                     continue;
                             }
-
+                            // 是否需要拉取硬盘数据
                             boolean isInDisk = checkInDiskByCommitOffset(offsetPy, maxOffsetPy);
 
                             if (this.isTheBatchFull(sizePy, maxMsgNums, getResult.getBufferTotalSize(), getResult.getMessageCount(),
@@ -627,7 +631,7 @@ public class DefaultMessageStore implements MessageStore {
 
                                 continue;
                             }
-
+                            // 从commitLog中获取消息内容
                             SelectMappedBufferResult selectResult = this.commitLog.getMessage(offsetPy, sizePy);
                             if (null == selectResult) {
                                 if (getResult.getBufferTotalSize() == 0) {
@@ -698,6 +702,7 @@ public class DefaultMessageStore implements MessageStore {
         getResult.setNextBeginOffset(nextBeginOffset);
         getResult.setMaxOffset(maxOffset);
         getResult.setMinOffset(minOffset);
+        // 返回GetMessageResult
         return getResult;
     }
 

@@ -333,7 +333,7 @@ public class BrokerController {
                 Executors.newFixedThreadPool(this.brokerConfig.getConsumerManageThreadPoolNums(), new ThreadFactoryImpl(
                     "ConsumerManageThread_"));
 
-            // registerProcessor
+            // 注册各种Processor
             this.registerProcessor();
 
             //在完成 registerProcessor后，会创建8个定时任务
@@ -871,6 +871,7 @@ public class BrokerController {
         }
 
         if (this.remotingServer != null) {
+            // 启动server端
             this.remotingServer.start();
         }
 
@@ -887,6 +888,7 @@ public class BrokerController {
         }
 
         if (this.pullRequestHoldService != null) {
+            // 启动pullRequestHoldService后台线程
             this.pullRequestHoldService.start();
         }
 
