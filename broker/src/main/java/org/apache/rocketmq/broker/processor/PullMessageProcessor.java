@@ -411,6 +411,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         response = null;
                     }
                     break;
+                // 未拉取到消息（hold住请求）
                 case ResponseCode.PULL_NOT_FOUND:
 
                     if (brokerAllowSuspend && hasSuspendFlag) {
@@ -418,13 +419,15 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {
                             pollingTimeMills = this.brokerController.getBrokerConfig().getShortPollingTimeMills();
                         }
-
+                        // isLongPollingEnable = true; 开启长轮训
                         String topic = requestHeader.getTopic();
                         long offset = requestHeader.getQueueOffset();
                         int queueId = requestHeader.getQueueId();
                         PullRequest pullRequest = new PullRequest(request, channel, pollingTimeMills,
                             this.brokerController.getMessageStore().now(), offset, subscriptionData, messageFilter);
+                        // hold住并且挂起该请求
                         this.brokerController.getPullRequestHoldService().suspendPullRequest(topic, queueId, pullRequest);
+                        // 设置response为null，此时不会向Consumer端发送任何响应的内容，即不会对响应结果进行处理
                         response = null;
                         break;
                     }
@@ -559,6 +562,8 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             @Override
             public void run() {
                 try {
+                    // 通过业务线程池PullMessageProcessor，异步提交重新Pull消息的请求任务
+                    // 重新调了一次PullMessageProcessor业务处理器的processRequest()方法，来实现Pull消息请求的二次处理
                     final RemotingCommand response = PullMessageProcessor.this.processRequest(channel, request, false);
 
                     if (response != null) {
