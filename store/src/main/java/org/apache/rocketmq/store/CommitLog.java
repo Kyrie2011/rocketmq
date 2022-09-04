@@ -77,12 +77,19 @@ public class CommitLog {
     private volatile Set<String> fullStorePaths = Collections.emptySet();
 
     public CommitLog(final DefaultMessageStore defaultMessageStore) {
+        // 构造mappedFileQueue对象
         String storePath = defaultMessageStore.getMessageStoreConfig().getStorePathCommitLog();
         if (storePath.contains(MessageStoreConfig.MULTI_PATH_SPLITTER)) {
             this.mappedFileQueue = new MultiPathMappedFileQueue(defaultMessageStore.getMessageStoreConfig(),
                     defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog(),
                     defaultMessageStore.getAllocateMappedFileService(), this::getFullStorePaths);
         } else {
+            /**
+             * 参数：
+             *  1. CommitLog文件的存储路径
+             *  2. CommitLog文件大小，默认1G
+             *  3. 映射文件分配线程，RocketMQ使用内存映射处理文件（CommitLog、ConsumeQueue、IndexFile）
+             */
             this.mappedFileQueue = new MappedFileQueue(storePath,
                     defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog(),
                     defaultMessageStore.getAllocateMappedFileService());
@@ -588,24 +595,29 @@ public class CommitLog {
         return keyBuilder.toString();
     }
 
+    // 将消息写入MappedFile中
     public CompletableFuture<PutMessageResult> asyncPutMessage(final MessageExtBrokerInner msg) {
-        // Set the storage time
+        // 设置消息存储时间
         msg.setStoreTimestamp(System.currentTimeMillis());
         // Set the message body BODY CRC (consider the most appropriate setting
         // on the client)
+        // 设置消息体循环冗余校验码
         msg.setBodyCRC(UtilAll.crc32(msg.getBody()));
         // Back to Results
+        // 返回结果对象
         AppendMessageResult result = null;
-
+        // 存储统计
         StoreStatsService storeStatsService = this.defaultMessageStore.getStoreStatsService();
 
-        String topic = msg.getTopic();
-        int queueId = msg.getQueueId();
+        String topic = msg.getTopic();  // topic
+        int queueId = msg.getQueueId(); // queueId
 
+        // 获取消息类型
         final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
+        // 不处理事务消息
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
-            // Delay Delivery
+            // Delay Delivery   延迟消息处理
             if (msg.getDelayTimeLevel() > 0) {
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
                     msg.setDelayTimeLevel(this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel());
@@ -644,18 +656,20 @@ public class CommitLog {
 
         long elapsedTimeInLock = 0;
         MappedFile unlockMappedFile = null;
-
+        // 加锁，默认使用自旋锁
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
+            // 获取最近的映射文件
             MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
             long beginLockTimestamp = this.defaultMessageStore.getSystemClock().now();
-            this.beginTimeInLock = beginLockTimestamp;
+            this.beginTimeInLock = beginLockTimestamp;  // 该值用来计算消息写入耗时。写入新消息前，会根据该值来检查操作系统内存页写入是否繁忙
 
             // Here settings are stored timestamp, in order to ensure an orderly
             // global
             msg.setStoreTimestamp(beginLockTimestamp);
 
             if (null == mappedFile || mappedFile.isFull()) {
+                // 已经满了，则通过allocateMappedFileService 创建并分配一个映射文件
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
             if (null == mappedFile) {
@@ -663,7 +677,7 @@ public class CommitLog {
                 beginTimeInLock = 0;
                 return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.CREATE_MAPEDFILE_FAILED, null));
             }
-
+            // 核心，向映射文件中写入消息。注意：这只是将消息写入映射文件中的writeBuffer/mappedByteBuffer,并没有刷到磁盘中。
             result = mappedFile.appendMessage(msg, this.appendMessageCallback, putMessageContext);
             switch (result.getStatus()) {
                 case PUT_OK:

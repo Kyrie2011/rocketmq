@@ -282,6 +282,7 @@ public abstract class RebalanceImpl {
 
                     List<MessageQueue> allocateResult = null;
                     try {
+                        // 负载均衡策略，默认平均分配
                         allocateResult = strategy.allocate(
                             this.consumerGroup,
                             this.mQClientFactory.getClientId(),
@@ -366,7 +367,7 @@ public abstract class RebalanceImpl {
                 }
             }
         }
-
+        // 构建pullRequestList
         List<PullRequest> pullRequestList = new ArrayList<PullRequest>();
         for (MessageQueue mq : mqSet) {
             if (!this.processQueueTable.containsKey(mq)) {
@@ -405,7 +406,7 @@ public abstract class RebalanceImpl {
                 }
             }
         }
-
+        // 分发
         this.dispatchPullRequest(pullRequestList);
 
         return changed;

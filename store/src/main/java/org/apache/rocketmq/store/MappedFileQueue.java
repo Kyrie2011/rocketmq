@@ -210,6 +210,7 @@ public class MappedFileQueue {
         }
 
         if (createOffset != -1 && needCreate) {
+            // 创建MappedFile
             return tryCreateMappedFile(createOffset);
         }
 
@@ -217,6 +218,7 @@ public class MappedFileQueue {
     }
 
     protected MappedFile tryCreateMappedFile(long createOffset) {
+        // 一次创建两个映射文件，提高创建效率
         String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);
         String nextNextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset
                 + this.mappedFileSize);
@@ -226,7 +228,9 @@ public class MappedFileQueue {
     protected MappedFile doCreateMappedFile(String nextFilePath, String nextNextFilePath) {
         MappedFile mappedFile = null;
 
+        // 优先通过AllocateMappedFileService创建映射文件，因为是预分配方式，性能很高
         if (this.allocateMappedFileService != null) {
+            // 创建一个MappedFile对象
             mappedFile = this.allocateMappedFileService.putRequestAndReturnMappedFile(nextFilePath,
                     nextNextFilePath, this.mappedFileSize);
         } else {
