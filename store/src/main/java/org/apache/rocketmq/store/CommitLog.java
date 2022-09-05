@@ -96,13 +96,13 @@ public class CommitLog {
         }
 
         this.defaultMessageStore = defaultMessageStore;
-
+        // 消息刷盘服务，分为同步刷盘和异步刷盘
         if (FlushDiskType.SYNC_FLUSH == defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
             this.flushCommitLogService = new GroupCommitService();
         } else {
             this.flushCommitLogService = new FlushRealTimeService();
         }
-
+        // 如果启用了TransientStorePool，该服务用于将消息从writeBuffer（堆外内存）提交到FileChannel
         this.commitLogService = new CommitRealTimeService();
 
         this.appendMessageCallback = new DefaultAppendMessageCallback(defaultMessageStore.getMessageStoreConfig().getMaxMessageSize());

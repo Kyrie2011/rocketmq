@@ -523,7 +523,13 @@ public class MappedFile extends ReferenceResource {
         }
         log.info("mapped file warm-up done. mappedFile={}, costTime={}", this.getFileName(),
             System.currentTimeMillis() - beginTime);
-
+        /**
+         * 将当前映射文件全部的地址空间锁定在物理存储中，防止其被交换到swap空间。
+         *
+         * 再调用madvise，传入WILL_NEED策略，将刚刚锁住的内存预热，其实就是告诉内核，我马上就要用WILL_NEED这块内存，
+         * 先做虚拟内存到物理内存的映射。
+         *
+         */
         this.mlock();
     }
 

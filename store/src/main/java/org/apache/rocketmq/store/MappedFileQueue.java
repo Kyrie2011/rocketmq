@@ -218,7 +218,7 @@ public class MappedFileQueue {
     }
 
     protected MappedFile tryCreateMappedFile(long createOffset) {
-        // 一次创建两个映射文件，提高创建效率
+        // 一次创建两个映射文件，提高创建效率 （有两个创建请求AllocateRequest）
         String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);
         String nextNextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset
                 + this.mappedFileSize);

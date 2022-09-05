@@ -126,7 +126,7 @@ public class DefaultMessageStore implements MessageStore {
         this.brokerConfig = brokerConfig;
         this.messageStoreConfig = messageStoreConfig;
         this.brokerStatsManager = brokerStatsManager;
-        // 请求定位服务
+        // 分配MappedFile的服务
         this.allocateMappedFileService = new AllocateMappedFileService(this);
         // 存储服务
         if (messageStoreConfig.isEnableDLegerCommitLog()) {
@@ -149,10 +149,11 @@ public class DefaultMessageStore implements MessageStore {
         } else {
             this.haService = null;
         }
+        //
         this.reputMessageService = new ReputMessageService();
-
+        //
         this.scheduleMessageService = new ScheduleMessageService(this);
-
+        // 初始化transientStorePool，分配poolSize个fileSize大小的堆外空间
         this.transientStorePool = new TransientStorePool(messageStoreConfig);
 
         if (messageStoreConfig.isTransientStorePoolEnable()) {
