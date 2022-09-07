@@ -24,9 +24,8 @@ public class ProducerDemo {
     public static void main(String[] args) throws MQClientException, MQBrokerException, RemotingException, InterruptedException {
         DefaultMQProducer producer = new DefaultMQProducer("order_producer");
         producer.setNamesrvAddr("127.0.0.1:9876");
-
+        producer.setSendMsgTimeout(1000000);
         producer.start();
-
         String[] tags = new String[]{"TagA", "TagC", "TagD"};
 
         // 订单列表

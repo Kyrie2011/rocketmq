@@ -33,6 +33,7 @@ public class Producer {
          */
         DefaultMQProducer producer = new DefaultMQProducer("test_producer_group666");  // 实例化消息生产者
         producer.setNamesrvAddr("127.0.0.1:9876");  // 设置NameServer的地址
+        // producer.setSendMsgTimeout(1000000);
         /*
          * Specify name server addresses.
          * <p/>
@@ -51,7 +52,7 @@ public class Producer {
         // 启动生产者实例
         producer.start();
 
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < 5; i++) {
             try {
                 // 创建消息，并指定Topic，Tag和消息体
                 Message msg = new Message("TopicTest9876" /* Topic */,
@@ -63,7 +64,7 @@ public class Producer {
                  * Call send message to deliver message to one of brokers.
                  */
                 // 发送消息到一个Broker
-                SendResult sendResult = producer.send(msg);
+                SendResult sendResult = producer.send(msg, 100000);
                 /*
                  * There are different ways to send message, if you don't care about the send result,you can use this way
                  * {@code

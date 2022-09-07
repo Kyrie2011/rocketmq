@@ -627,7 +627,7 @@ public class MQClientInstance {
                             }
                         }
                     } else {
-                        System.out.println("第一次拉取topic的路由信息：" + topic);
+                       // System.out.println("第一次拉取topic的路由信息：" + topic);
                         topicRouteData = this.mQClientAPIImpl.getTopicRouteInfoFromNameServer(topic, clientConfig.getMqClientApiTimeout());
                     }
                     if (topicRouteData != null) {
@@ -685,7 +685,7 @@ public class MQClientInstance {
                         log.warn("updateTopicRouteInfoFromNameServer, getTopicRouteInfoFromNameServer return null, Topic: {}. [{}]", topic, this.clientId);
                     }
                 } catch (MQClientException e) {
-                    System.out.println("-------首次拉取"+ topic + "的路由信息：" + e);
+                    // System.out.println("-------首次拉取"+ topic + "的路由信息：" + e);
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         log.warn("updateTopicRouteInfoFromNameServer Exception", e);
                     }
@@ -928,9 +928,9 @@ public class MQClientInstance {
         if (null == group || null == producer) {
             return false;
         }
-        System.out.println("注册producer之前：" + this.producerTable);
+      //  System.out.println("注册producer之前：" + this.producerTable);
         MQProducerInner prev = this.producerTable.putIfAbsent(group, producer);
-        System.out.println("注册producer之后：" + this.producerTable);
+      //  System.out.println("注册producer之后：" + this.producerTable);
         if (prev != null) {
             log.warn("the producer group[{}] exist already.", group);
             return false;

@@ -526,7 +526,9 @@ public class CommitLog {
 
             // Clear ConsumeQueue redundant data
             if (maxPhyOffsetOfConsumeQueue >= processOffset) {
+                // ConsumeQueue中的数据 >= CommitLog中的数据
                 log.warn("maxPhyOffsetOfConsumeQueue({}) >= processOffset({}), truncate dirty logic files", maxPhyOffsetOfConsumeQueue, processOffset);
+                // 清除ConsumeQueue的脏数据
                 this.defaultMessageStore.truncateDirtyLogicFiles(processOffset);
             }
         }
@@ -669,7 +671,7 @@ public class CommitLog {
             msg.setStoreTimestamp(beginLockTimestamp);
 
             if (null == mappedFile || mappedFile.isFull()) {
-                // 已经满了，则通过allocateMappedFileService 创建并分配一个映射文件
+                // 重点：已经满了，则通过allocateMappedFileService 创建并分配一个映射文件
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
             if (null == mappedFile) {
@@ -726,8 +728,13 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).add(1);
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).add(result.getWroteBytes());
 
+        // 刷盘（同步或异步刷盘）
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
+
+        // 主从同步
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
+
+        // 返回putMessageResult
         return flushResultFuture.thenCombine(replicaResultFuture, (flushStatus, replicaStatus) -> {
             if (flushStatus != PutMessageStatus.PUT_OK) {
                 putMessageResult.setPutMessageStatus(flushStatus);
@@ -862,15 +869,19 @@ public class CommitLog {
     }
 
     public CompletableFuture<PutMessageStatus> submitFlushRequest(AppendMessageResult result, MessageExt messageExt) {
-        // Synchronization flush
+        // Synchronization flush  同步刷盘
         if (FlushDiskType.SYNC_FLUSH == this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
             final GroupCommitService service = (GroupCommitService) this.flushCommitLogService;
+            // 如果客户端要确定刷盘是否成功
             if (messageExt.isWaitStoreMsgOK()) {
+                // GroupCommitRequest 刷盘请求封装
                 GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(),
                         this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
                 service.putRequest(request);
                 return request.future();
             } else {
+                // Broker端虽然配置成同步刷盘，但客户端不关心是否已经刷盘成功
+                // 同步刷盘策略退化成了异步刷盘策略
                 service.wakeup();
                 return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
             }
@@ -1153,7 +1164,9 @@ public class CommitLog {
     }
 
     public static class GroupCommitRequest {
+        // MappedFile文件缓存区的位置
         private final long nextOffset;
+        // 等待刷盘状态的标志
         private CompletableFuture<PutMessageStatus> flushOKFuture = new CompletableFuture<>();
         private final long startTimestamp = System.currentTimeMillis();
         private long timeoutMillis = Long.MAX_VALUE;

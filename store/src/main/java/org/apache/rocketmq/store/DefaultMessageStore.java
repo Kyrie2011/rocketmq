@@ -1351,7 +1351,9 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     private void cleanFilesPeriodically() {
+        // 删除过期的CommitLog文件
         this.cleanCommitLogService.run();
+        // 再删除ConsumeQueue/indexFile文件
         this.cleanConsumeQueueService.run();
     }
 
@@ -1957,7 +1959,6 @@ public class DefaultMessageStore implements MessageStore {
         private boolean isCommitLogAvailable() {
             return this.reputFromOffset < DefaultMessageStore.this.commitLog.getMaxOffset();
         }
-
         private void doReput() {
             if (this.reputFromOffset < DefaultMessageStore.this.commitLog.getMinOffset()) {
                 log.warn("The reputFromOffset={} is smaller than minPyOffset={}, this usually indicate that the dispatch behind too much and the commitlog has expired.",
@@ -1965,12 +1966,11 @@ public class DefaultMessageStore implements MessageStore {
                 this.reputFromOffset = DefaultMessageStore.this.commitLog.getMinOffset();
             }
             for (boolean doNext = true; this.isCommitLogAvailable() && doNext; ) {
-
                 if (DefaultMessageStore.this.getMessageStoreConfig().isDuplicationEnable()
                     && this.reputFromOffset >= DefaultMessageStore.this.getConfirmOffset()) {
                     break;
                 }
-                // 从commitLog中获取消息数据
+                // 从commitLog中获取消息数据,但实际是从对应的MappedFile中的buffer获取 (可能获取还没有刷到磁盘的内存数据?)
                 SelectMappedBufferResult result = DefaultMessageStore.this.commitLog.getData(reputFromOffset);
                 if (result != null) {
                     try {
@@ -1983,9 +1983,8 @@ public class DefaultMessageStore implements MessageStore {
 
                             if (dispatchRequest.isSuccess()) {
                                 if (size > 0) {
-                                    // 分发请求
+                                    // 分发请求 构建consumeQueue和IndexFile ?
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
-
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                             && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()
                                             && DefaultMessageStore.this.messageArrivingListener != null) {
@@ -2044,7 +2043,8 @@ public class DefaultMessageStore implements MessageStore {
                 try {
                     Thread.sleep(1);
                     /**
-                     * 不断从commitLog中解析数据并分发请求，构建吹ConsumeQueue（逻辑消费队列）和IndexFile（消息索引文件）两种类型的数据
+                     * 核心：
+                     * 不断从commitLog中解析数据并分发请求，构建出ConsumeQueue（逻辑消费队列）和IndexFile（消息索引文件）两种类型的数据
                      * 于此同时，从本地缓存变量pullRequestTable中，取出hold住的PullRequest请求并执行二次处理
                      */
                     this.doReput();
