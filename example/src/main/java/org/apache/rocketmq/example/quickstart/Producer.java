@@ -28,87 +28,56 @@ import org.apache.rocketmq.remoting.common.RemotingHelper;
 public class Producer {
     public static void main(String[] args) throws MQClientException, InterruptedException {
 
-        /*
-         * Instantiate with a producer group name.
-         */
+        // 创建第一个生产者
         DefaultMQProducer producer = new DefaultMQProducer("test_producer_group666");  // 实例化消息生产者
         producer.setNamesrvAddr("127.0.0.1:9876");  // 设置NameServer的地址
         // producer.setSendMsgTimeout(1000000);
-        /*
-         * Specify name server addresses.
-         * <p/>
-         *
-         * Alternatively, you may specify name server addresses via exporting environmental variable: NAMESRV_ADDR
-         * <pre>
-         * {@code
-         * producer.setNamesrvAddr("name-server1-ip:9876;name-server2-ip:9876");
-         * }
-         * </pre>
-         */
-
-        /*
-         * Launch the instance.
-         */
         // 启动生产者实例
         producer.start();
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 2; i++) {
             try {
                 // 创建消息，并指定Topic，Tag和消息体
-                Message msg = new Message("TopicTest9876" /* Topic */,
-                    "TagA" /* Tag */,
-                    ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
+                Message msg = new Message("TopicTest1" /* Topic */,
+                        "TagA" /* Tag */,
+                        ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
                 );
-
-                /*
-                 * Call send message to deliver message to one of brokers.
-                 */
-                // 发送消息到一个Broker
+                // 发送消息
                 SendResult sendResult = producer.send(msg, 100000);
-                /*
-                 * There are different ways to send message, if you don't care about the send result,you can use this way
-                 * {@code
-                 * producer.sendOneway(msg);
-                 * }
-                 */
-
-                /*
-                 * if you want to get the send result in a synchronize way, you can use this send method
-                 * {@code
-                 * SendResult sendResult = producer.send(msg);
-                 * System.out.printf("%s%n", sendResult);
-                 * }
-                 */
-
-                /*
-                 * if you want to get the send result in a asynchronize way, you can use this send method
-                 * {@code
-                 *
-                 *  producer.send(msg, new SendCallback() {
-                 *  @Override
-                 *  public void onSuccess(SendResult sendResult) {
-                 *      // do something
-                 *  }
-                 *
-                 *  @Override
-                 *  public void onException(Throwable e) {
-                 *      // do something
-                 *  }
-                 *});
-                 *
-                 *}
-                 */
-
-                System.out.printf("%s%n", sendResult);
+                System.out.printf("producer" + "%s%n", sendResult);
             } catch (Exception e) {
                 e.printStackTrace();
                 Thread.sleep(1000);
             }
         }
 
+        // 创建第二个生产者
+        DefaultMQProducer producer2 = new DefaultMQProducer("test_producer_group666");  // 实例化消息生产者
+        producer2.setNamesrvAddr("127.0.0.1:9876");  // 设置NameServer的地址
+        // producer.setSendMsgTimeout(1000000);
+        // 启动生产者实例
+        producer2.start();
+        for (int i = 2; i < 5; i++) {
+            try {
+                // 创建消息，并指定Topic，Tag和消息体
+                Message msg = new Message("TopicTest2" /* Topic */,
+                        "TagA" /* Tag */,
+                        ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
+                );
+                // 发送消息
+                SendResult sendResult = producer2.send(msg, 100000);
+                System.out.printf("producer2" + "%s%n", sendResult);
+            } catch (Exception e) {
+                e.printStackTrace();
+                Thread.sleep(1000);
+            }
+        }
+
+
         /*
          * Shut down once the producer instance is not longer in use.
          */
+        Thread.sleep(1000000);
         producer.shutdown();
     }
 }
