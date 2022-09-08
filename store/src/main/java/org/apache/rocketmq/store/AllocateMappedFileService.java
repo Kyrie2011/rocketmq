@@ -194,7 +194,13 @@ public class AllocateMappedFileService extends ServiceThread {
                     .getMappedFileSizeCommitLog()
                     &&
                     this.messageStore.getMessageStoreConfig().isWarmMapedFileEnable()) {
-                    // 对当前映射文件进行预热 TODO
+                    /**
+                     * TODO
+                     * 因为创建MappedFile时，通过mmap映射，只是建立了进程虚拟内存地址与物理内存地址之间的映射关系，并没有将PageCache加载至内存。实际未分配物理内存
+                     * 读写数据时如果没有命中写PageCache则发生缺页中断，从磁盘重新加载数据至内存，这样会影响读写性能。
+                     * 为了防止缺页异常，阻止操作系统将相关的内存页调度到交换空间（swap space），RocketMQ 通过对文件预热
+                     */
+                    // 对当前映射文件进行预热，通过文件预热避免了读写时缺页异常
                     mappedFile.warmMappedFile(this.messageStore.getMessageStoreConfig().getFlushDiskType(),
                         this.messageStore.getMessageStoreConfig().getFlushLeastPagesWhenWarmMapedFile());
                 }

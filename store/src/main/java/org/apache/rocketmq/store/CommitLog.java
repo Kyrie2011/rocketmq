@@ -658,7 +658,7 @@ public class CommitLog {
 
         long elapsedTimeInLock = 0;
         MappedFile unlockMappedFile = null;
-        // 加锁，默认使用自旋锁
+        // 加锁，默认使用自旋锁   保证单个Broker写消息是串行的
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
             // 获取最近的映射文件
@@ -711,6 +711,7 @@ public class CommitLog {
             elapsedTimeInLock = this.defaultMessageStore.getSystemClock().now() - beginLockTimestamp;
             beginTimeInLock = 0;
         } finally {
+            // 释放锁
             putMessageLock.unlock();
         }
 
@@ -729,9 +730,11 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).add(result.getWroteBytes());
 
         // 刷盘（同步或异步刷盘）
+        // 提交刷盘请求
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
 
         // 主从同步
+
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
 
         // 返回putMessageResult
@@ -886,11 +889,12 @@ public class CommitLog {
                 return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
             }
         }
-        // Asynchronous flush
+        // Asynchronous flush 异步刷盘
         else {
             if (!this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
                 flushCommitLogService.wakeup();
             } else  {
+                // 开启堆外内存的异步刷盘
                 commitLogService.wakeup();
             }
             return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
@@ -1056,11 +1060,13 @@ public class CommitLog {
                 }
 
                 try {
+                    // 把消息从堆外内存 commit到内存缓冲区PageCache，最终调用的是 MappedFile::commit0 方法，只有达到最少提交页数才能提交成功，否则还在堆外内存中
                     boolean result = CommitLog.this.mappedFileQueue.commit(commitDataLeastPages);
                     long end = System.currentTimeMillis();
                     if (!result) {
                         this.lastCommitTimestamp = end; // result = false means some data committed.
                         //now wake up flush thread.
+                        // 唤醒flushCommitLogService 进行强制刷盘
                         flushCommitLogService.wakeup();
                     }
 
