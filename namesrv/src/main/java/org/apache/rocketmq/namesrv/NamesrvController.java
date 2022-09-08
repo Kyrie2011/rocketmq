@@ -90,6 +90,7 @@ public class NamesrvController {
 
             @Override
             public void run() {
+                // 定时检测不活跃的Broker
                 NamesrvController.this.routeInfoManager.scanNotActiveBroker();
             }
         }, 5, 10, TimeUnit.SECONDS);

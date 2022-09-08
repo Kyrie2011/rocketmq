@@ -265,10 +265,12 @@ public class BrokerController {
         result = result && this.messageStore.load();
 
         if (result) {
+            // 配置Netty服务器
             this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.clientHousekeepingService);
             NettyServerConfig fastConfig = (NettyServerConfig) this.nettyServerConfig.clone();
             fastConfig.setListenPort(nettyServerConfig.getListenPort() - 2);  // VIP通道
             this.fastRemotingServer = new NettyRemotingServer(fastConfig, this.clientHousekeepingService);
+            // 各种线程池
             this.sendMessageExecutor = new BrokerFixedThreadPoolExecutor(
                 this.brokerConfig.getSendMessageThreadPoolNums(),
                 this.brokerConfig.getSendMessageThreadPoolNums(),
@@ -333,7 +335,7 @@ public class BrokerController {
                 Executors.newFixedThreadPool(this.brokerConfig.getConsumerManageThreadPoolNums(), new ThreadFactoryImpl(
                     "ConsumerManageThread_"));
 
-            // 注册各种Processor
+            // 注册各种Processor  线程池隔离机制，专注各自逻辑
             this.registerProcessor();
 
             //在完成 registerProcessor后，会创建8个定时任务
@@ -356,6 +358,7 @@ public class BrokerController {
                 @Override
                 public void run() {
                     try {
+                        // 消息消费进度持久化
                         BrokerController.this.consumerOffsetManager.persist();
                     } catch (Throwable e) {
                         log.error("schedule persist consumerOffset error.", e);
@@ -417,6 +420,7 @@ public class BrokerController {
                     @Override
                     public void run() {
                         try {
+                            //
                             BrokerController.this.brokerOuterAPI.fetchNameServerAddr();
                         } catch (Throwable e) {
                             log.error("ScheduledTask fetchNameServerAddr exception", e);
@@ -911,6 +915,7 @@ public class BrokerController {
             @Override
             public void run() {
                 try {
+                    // 上报注册
                     BrokerController.this.registerBrokerAll(true, false, brokerConfig.isForceRegister());
                 } catch (Throwable e) {
                     log.error("registerBrokerAll Exception", e);

@@ -161,6 +161,7 @@ public class NamesrvStartup {
             }
         }));
 
+        // netty服务启动
         controller.start();
 
         return controller;

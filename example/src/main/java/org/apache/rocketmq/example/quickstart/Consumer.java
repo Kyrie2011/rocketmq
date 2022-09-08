@@ -59,7 +59,7 @@ public class Consumer {
          * Subscribe one more more topics to consume.
          */
         // 订阅一个或者多个Topic，以及Tag来过滤需要消费的消息
-        consumer.subscribe("TopicTest", "*");
+        consumer.subscribe("TopicTest1", "*");
 
         /*
          *  Register callback to execute on arrival of messages fetched from brokers.
