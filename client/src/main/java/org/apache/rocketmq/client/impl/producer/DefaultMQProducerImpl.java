@@ -184,7 +184,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         log.info("register endTransaction Hook, {}", hook.hookName());
     }
 
-    //
+
+    // 入口
     public void start() throws MQClientException {
         this.start(true);
     }
@@ -197,13 +198,14 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 this.checkConfig();
 
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
+                    // 如果是DEFAULT,则更新InstanceName
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
 
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
 
                 // System.out.println("MQClientInstance:" + this.mQClientFactory);
-
+                //注册生产者,这个会把对应的生产者加入到producerTable中，用于startScheduledTask.sendHeartbeatToAllBrokerWithLock()任务定时发送心跳包的时候带过去
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -298,6 +300,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public Set<String> getPublishTopicList() {
         Set<String> topicList = new HashSet<String>();
         for (String key : this.topicPublishInfoTable.keySet()) {
+            // 添加topic信息
             topicList.add(key);
         }
 

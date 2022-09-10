@@ -31,39 +31,14 @@ import org.apache.rocketmq.common.message.MessageExt;
 public class Consumer {
 
     public static void main(String[] args) throws InterruptedException, MQClientException {
-
-        /*
-         * Instantiate with specified consumer group name.
-         */
         // push模式消费
         DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("test_consumer_group");  // 实例化消费者
         consumer.setNamesrvAddr("127.0.0.1:9876"); // 设置NameServer的地址
-        /*
-         * Specify name server addresses.
-         * <p/>
-         *
-         * Alternatively, you may specify name server addresses via exporting environmental variable: NAMESRV_ADDR
-         * <pre>
-         * {@code
-         * consumer.setNamesrvAddr("name-server1-ip:9876;name-server2-ip:9876");
-         * }
-         * </pre>
-         */
-
-        /*
-         * Specify where to start in case the specified consumer group is a brand new one.
-         */
         consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
 
-        /*
-         * Subscribe one more more topics to consume.
-         */
         // 订阅一个或者多个Topic，以及Tag来过滤需要消费的消息
         consumer.subscribe("TopicTest1", "*");
 
-        /*
-         *  Register callback to execute on arrival of messages fetched from brokers.
-         */
         // 注册回调实现类，来处理从broker拉取回来的消息
         consumer.registerMessageListener(new MessageListenerConcurrently() {
 
@@ -76,9 +51,6 @@ public class Consumer {
             }
         });
 
-        /*
-         *  Launch the consumer instance.
-         */
         // 启动消费者实例
         consumer.start();
 
