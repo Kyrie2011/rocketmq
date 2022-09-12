@@ -46,21 +46,31 @@ public class ProcessQueue {
     private final static long PULL_MAX_IDLE_TIME = Long.parseLong(System.getProperty("rocketmq.client.pull.pullMaxIdleTime", "120000"));
     private final InternalLogger log = ClientLogger.getLog();
     private final ReadWriteLock treeMapLock = new ReentrantReadWriteLock();
+    // 用来保存拉取到的消息(待消费的消息)
     private final TreeMap<Long, MessageExt> msgTreeMap = new TreeMap<Long, MessageExt>();
+    // 当前保存的消息数，放进来的时候会加，移除的时候会减
     private final AtomicLong msgCount = new AtomicLong();
     private final AtomicLong msgSize = new AtomicLong();
+    // 消费锁，主要在顺序消费和移除ProcessQueue的时候使用
     private final Lock consumeLock = new ReentrantLock();
     /**
      * A subset of msgTreeMap, will only be used when orderly consume
      */
     private final TreeMap<Long, MessageExt> consumingMsgOrderlyTreeMap = new TreeMap<Long, MessageExt>();
+    // 记录了废弃ProcessQueue的时候lockConsume的次数
     private final AtomicLong tryUnlockTimes = new AtomicLong(0);
+    // ProcessQueue中保存的消息里的最大offset，为ConsumeQueue的offset
     private volatile long queueOffsetMax = 0L;
+    // 该数据结构里的消息是否废弃
     private volatile boolean dropped = false;
+    // 上次执行拉取消息的时间
     private volatile long lastPullTimestamp = System.currentTimeMillis();
+    // 上次消费完消息后记录的时间
     private volatile long lastConsumeTimestamp = System.currentTimeMillis();
     private volatile boolean locked = false;
+    // 上次锁定的时间
     private volatile long lastLockTimestamp = System.currentTimeMillis();
+    // 是否正在消费
     private volatile boolean consuming = false;
     private volatile long msgAccCnt = 0;
 

@@ -158,7 +158,7 @@ public class MQClientInstance {
     }
 
     public static TopicPublishInfo topicRouteData2TopicPublishInfo(final String topic, final TopicRouteData route) {
-        // 将“TBW102”topic路由信息构建TopicPublishInfo
+        // 构建TopicPublishInfo信息
         TopicPublishInfo info = new TopicPublishInfo();
         // 新的topic，用的“TBW102”topic路由信息。因此真正要发送消息的topic也会被负载发送到“TBW102”topic所在的broker中
         info.setTopicRouteData(route);
@@ -168,11 +168,12 @@ public class MQClientInstance {
                 String[] item = broker.split(":");
                 int nums = Integer.parseInt(item[1]);
                 for (int i = 0; i < nums; i++) {
+                    // 按broker顺序，分别构建MessageQueue
                     MessageQueue mq = new MessageQueue(topic, item[0], i);
                     info.getMessageQueueList().add(mq);
                 }
             }
-
+            // 顺序标识
             info.setOrderTopic(true);
         } else {
             List<QueueData> qds = route.getQueueDatas();
@@ -327,6 +328,7 @@ public class MQClientInstance {
     }
 
     public void updateTopicRouteInfoFromNameServer() {
+        // 存放topic
         Set<String> topicList = new HashSet<String>();
 
         // Consumer
@@ -348,7 +350,9 @@ public class MQClientInstance {
 
         // Producer
         {
+
             Iterator<Entry<String, MQProducerInner>> it = this.producerTable.entrySet().iterator();
+            // 获取该MQClientInstance实例下所有生产者组的topic
             while (it.hasNext()) {
                 Entry<String, MQProducerInner> entry = it.next();
                 MQProducerInner impl = entry.getValue();
@@ -360,6 +364,7 @@ public class MQClientInstance {
         }
 
         for (String topic : topicList) {
+            // 遍历topic，获取路由信息
             this.updateTopicRouteInfoFromNameServer(topic);
         }
     }
@@ -513,6 +518,7 @@ public class MQClientInstance {
     }
 
     public boolean updateTopicRouteInfoFromNameServer(final String topic) {
+        // 获取topic的路由信息
         return updateTopicRouteInfoFromNameServer(topic, false, null);
     }
 
@@ -612,17 +618,18 @@ public class MQClientInstance {
     public boolean updateTopicRouteInfoFromNameServer(final String topic, boolean isDefault,
         DefaultMQProducer defaultMQProducer) {
         try {
+            // TODO: 向NameServer加锁
             if (this.lockNamesrv.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
-                    TopicRouteData topicRouteData;
-                    // 第二次 isDefault是true
+                    TopicRouteData topicRouteData; // topic路由信息的封装
+                    // 若isDefault是true，获取“TBW102”topic的路由消息
                     if (isDefault && defaultMQProducer != null) {
                         // defaultMQProducer.getCreateTopicKey()
                         // 使用默认的“TBW102”topic获取路由消息
                         topicRouteData = this.mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(defaultMQProducer.getCreateTopicKey(),
                             clientConfig.getMqClientApiTimeout());
                         if (topicRouteData != null) {
-                            // List<QueueData> topicRouteData.getQueueDatas()，一个broker中该Topic的所有Queue对应的一个QueueData
+                            // List<QueueData> topicRouteData.getQueueDatas()，该topic在每一个broker上的队列元数据信息
                             for (QueueData data : topicRouteData.getQueueDatas()) {
                                 int queueNums = Math.min(defaultMQProducer.getDefaultTopicQueueNums(), data.getReadQueueNums());
                                 data.setReadQueueNums(queueNums);
@@ -636,7 +643,7 @@ public class MQClientInstance {
                     if (topicRouteData != null) {
                         // 从本地缓存中取出topic的路由信息，由于topic是第一次发送消息，这时本地并没有该topic的路由信息
                         TopicRouteData old = this.topicRouteTable.get(topic);
-                        // 将该topic路由信息对比“TBW102”时，changed为true
+                        // 是否路由信息发生变化，若未发生变化则change为false
                         boolean changed = topicRouteDataIsChange(old, topicRouteData);
                         if (!changed) {
                             changed = this.isNeedUpdateTopicRouteInfo(topic);
@@ -646,7 +653,7 @@ public class MQClientInstance {
 
                         if (changed) {
                             TopicRouteData cloneTopicRouteData = topicRouteData.cloneTopicRouteData();
-                            // List<BrokerData> topicRouteData.getBrokerDatas()，Broker列表
+                            // List<BrokerData> topicRouteData.getBrokerDatas(), 每个Broker集群的列表
                             for (BrokerData bd : topicRouteData.getBrokerDatas()) {
                                 // BrokerName相当于 broker集群的名称
                                 this.brokerAddrTable.put(bd.getBrokerName(), bd.getBrokerAddrs());
@@ -654,15 +661,15 @@ public class MQClientInstance {
 
                             // Update Pub info
                             {
-                                //  将“TBW102”topic路由信息构建TopicPublishInfo，并将用topic为key，TopicPublishInfo为value更新本地缓存
+                                // 将TopicRouteData信息，转化为TopicPublishInfo（增加MessageQueue的维度信息，粒度更加仔细）
                                 TopicPublishInfo publishInfo = topicRouteData2TopicPublishInfo(topic, topicRouteData);
                                 publishInfo.setHaveTopicRouterInfo(true);
                                 Iterator<Entry<String, MQProducerInner>> it = this.producerTable.entrySet().iterator();
-                                while (it.hasNext()) {
+                                while (it.hasNext()) {  // TODO 遍历producerTable，为啥？
                                     Entry<String, MQProducerInner> entry = it.next();
                                     MQProducerInner impl = entry.getValue();
                                     if (impl != null) {
-                                        // 更新本地缓存: topic为key，TopicPublishInfo为value
+                                        // 更新生产者本地缓存的路由信息: topic为key，TopicPublishInfo为value；
                                         impl.updateTopicPublishInfo(topic, publishInfo);
                                     }
                                 }
