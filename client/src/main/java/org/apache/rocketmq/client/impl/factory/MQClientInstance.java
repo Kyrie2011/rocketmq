@@ -276,6 +276,7 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
+                    // 同步路由信息
                     MQClientInstance.this.updateTopicRouteInfoFromNameServer();
                 } catch (Exception e) {
                     log.error("ScheduledTask updateTopicRouteInfoFromNameServer exception", e);
