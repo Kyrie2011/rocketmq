@@ -43,6 +43,8 @@ public class AllocateMessageQueueAveragely implements AllocateMessageQueueStrate
         }
 
         List<MessageQueue> result = new ArrayList<MessageQueue>();
+
+        // TODO 通过改写这部分逻辑，增加判断是否是指定IP的机器，如果不是直接返回空列表表示该机器不负责消费
         if (!cidAll.contains(currentCID)) {
             log.info("[BUG] ConsumerGroup: {} The consumerId: {} not in cidAll: {}",
                 consumerGroup,

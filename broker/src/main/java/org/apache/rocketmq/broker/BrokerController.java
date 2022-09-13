@@ -120,7 +120,7 @@ public class BrokerController {
     private final ConsumerFilterManager consumerFilterManager;
     private final ProducerManager producerManager;   // 管理Producer，主要通过一张map来缓存
     private final ClientHousekeepingService clientHousekeepingService;
-    private final PullMessageProcessor pullMessageProcessor;
+    private final PullMessageProcessor pullMessageProcessor;  // 处理拉去消息请求
     private final PullRequestHoldService pullRequestHoldService;
     private final MessageArrivingListener messageArrivingListener;
     private final Broker2Client broker2Client;
@@ -609,7 +609,8 @@ public class BrokerController {
         /**
          * ClientManageProcessor
          */
-        ClientManageProcessor clientProcessor = new ClientManageProcessor(this);
+        ClientManageProcessor clientProcessor = new ClientManageProcessor(this);  // 线程池隔离
+        // 注册心跳检测处理器
         this.remotingServer.registerProcessor(RequestCode.HEART_BEAT, clientProcessor, this.heartbeatExecutor);
         this.remotingServer.registerProcessor(RequestCode.UNREGISTER_CLIENT, clientProcessor, this.clientManageExecutor);
         this.remotingServer.registerProcessor(RequestCode.CHECK_CLIENT_CONFIG, clientProcessor, this.clientManageExecutor);

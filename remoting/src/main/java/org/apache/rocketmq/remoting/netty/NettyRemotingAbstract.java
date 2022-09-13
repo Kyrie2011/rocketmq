@@ -411,7 +411,9 @@ public abstract class NettyRemotingAbstract {
         final int opaque = request.getOpaque();
 
         try {
+            // 构建ResponseFuture对象，以便获取返回的结果信息
             final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis, null, null);
+            // 唯一的请求标识对应该的响应结果，放入responseTable中
             this.responseTable.put(opaque, responseFuture);
             final SocketAddress addr = channel.remoteAddress();
             channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
@@ -430,7 +432,7 @@ public abstract class NettyRemotingAbstract {
                     log.warn("send a request command to channel <" + addr + "> failed.");
                 }
             });
-
+            // 同步等待响应结果返回
             RemotingCommand responseCommand = responseFuture.waitResponse(timeoutMillis);
             if (null == responseCommand) {
                 if (responseFuture.isSendRequestOK()) {
@@ -443,6 +445,7 @@ public abstract class NettyRemotingAbstract {
 
             return responseCommand;
         } finally {
+            // 对应的请求标识对应的响应的结果
             this.responseTable.remove(opaque);
         }
     }
