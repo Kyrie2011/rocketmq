@@ -35,7 +35,7 @@ public class Producer {
         // 启动生产者实例
         producer.start();
 
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 2000; i++) {
             try {
                 // 创建消息，并指定Topic，Tag和消息体
                 Message msg = new Message("TopicTest1" /* Topic */,
@@ -51,7 +51,7 @@ public class Producer {
             }
         }
 
-        // 创建第二个生产者
+       /* // 创建第二个生产者
         DefaultMQProducer producer2 = new DefaultMQProducer("test_producer_group666");  // 实例化消息生产者
         producer2.setNamesrvAddr("127.0.0.1:9876");  // 设置NameServer的地址
         // producer.setSendMsgTimeout(1000000);
@@ -60,9 +60,9 @@ public class Producer {
         for (int i = 2; i < 5; i++) {
             try {
                 // 创建消息，并指定Topic，Tag和消息体
-                Message msg = new Message("TopicTest2" /* Topic */,
-                        "TagA" /* Tag */,
-                        ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
+                Message msg = new Message("TopicTest2" *//* Topic *//*,
+                        "TagA" *//* Tag *//*,
+                        ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) *//* Message body *//*
                 );
                 // 发送消息
                 SendResult sendResult = producer2.send(msg, 100000);
@@ -71,7 +71,7 @@ public class Producer {
                 e.printStackTrace();
                 Thread.sleep(1000);
             }
-        }
+        }*/
 
 
         /*
