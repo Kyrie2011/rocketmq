@@ -77,7 +77,7 @@ public class RebalancePushImpl extends RebalanceImpl {
             }
         }
 
-        // notify broker
+        // notify broker 向Broker发送心跳数据
         this.getmQClientFactory().sendHeartbeatToAllBrokerWithLock();
     }
 

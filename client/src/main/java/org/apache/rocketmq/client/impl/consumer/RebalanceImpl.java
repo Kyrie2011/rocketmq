@@ -308,7 +308,7 @@ public abstract class RebalanceImpl {
                             "rebalanced result changed. allocateMessageQueueStrategyName={}, group={}, topic={}, clientId={}, mqAllSize={}, cidAllSize={}, rebalanceResultSize={}, rebalanceResultSet={}",
                             strategy.getName(), consumerGroup, topic, this.mQClientFactory.getClientId(), mqSet.size(), cidAll.size(),
                             allocateResultSet.size(), allocateResultSet);
-                        // 当负载均衡队列发送变化时
+                        // 当负载均衡队列发送变化时,需要更新订阅信息，并向broker发送心跳
                         this.messageQueueChanged(topic, mqSet, allocateResultSet);
                     }
                 }

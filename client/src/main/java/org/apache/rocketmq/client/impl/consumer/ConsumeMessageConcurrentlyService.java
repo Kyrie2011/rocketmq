@@ -84,13 +84,16 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
 
     public void start() {
         this.cleanExpireMsgExecutors.scheduleAtFixedRate(new Runnable() {
-
+            /**
+             * 并发消费ConsumeMessageConcurrentlyService#start()方法中启动了一个定时任务，
+             * 每15分钟调用一次cleanExpiredMsg()清理过期消息：超过15分钟未被消费，针对每个ProcessQueue每次最多清理16条消息。
+             */
             @Override
             public void run() {
                 cleanExpireMsg();
             }
 
-        }, this.defaultMQPushConsumer.getConsumeTimeout(), this.defaultMQPushConsumer.getConsumeTimeout(), TimeUnit.MINUTES);
+        }, this.defaultMQPushConsumer.getConsumeTimeout(), this.defaultMQPushConsumer.getConsumeTimeout(), TimeUnit.MINUTES);  // this.defaultMQPushConsumer.getConsumeTimeout() = 15
     }
 
     public void shutdown(long awaitTerminateMillis) {
@@ -187,7 +190,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         // 一次最大拉取多少个消息，默认是1
         final int consumeBatchSize = this.defaultMQPushConsumer.getConsumeMessageBatchMaxSize();
         if (msgs.size() <= consumeBatchSize) {
-            // 构建ConsumeRequest请求，如果consumeBatchSize是1则是一个Runnable，消费msg
+            // 构建ConsumeRequest请求，如果consumeBatchSize是1则创建一个Runnable，消费1个msg
             ConsumeRequest consumeRequest = new ConsumeRequest(msgs, processQueue, messageQueue);
             try {
                 this.consumeExecutor.submit(consumeRequest);
@@ -204,7 +207,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                         break;
                     }
                 }
-                // 若consumeBatchSize是32，则创建32个Runnable提交到线程池，消费msg
+                // 若consumeBatchSize是32，则创建一个Runnable提交到线程池，消费32个msg（若msgs.size()为64，则创建2个ConsumeRequest放入线程池中）
                 ConsumeRequest consumeRequest = new ConsumeRequest(msgThis, processQueue, messageQueue);
                 try {
                     this.consumeExecutor.submit(consumeRequest);

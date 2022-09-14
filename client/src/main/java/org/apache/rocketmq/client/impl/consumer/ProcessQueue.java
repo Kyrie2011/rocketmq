@@ -86,10 +86,11 @@ public class ProcessQueue {
      * @param pushConsumer
      */
     public void cleanExpiredMsg(DefaultMQPushConsumer pushConsumer) {
+        // 顺序消费不清理过期消息
         if (pushConsumer.getDefaultMQPushConsumerImpl().isConsumeOrderly()) {
             return;
         }
-
+        // 每次最多清理16条消息
         int loop = msgTreeMap.size() < 16 ? msgTreeMap.size() : 16;
         for (int i = 0; i < loop; i++) {
             MessageExt msg = null;
@@ -110,20 +111,23 @@ public class ProcessQueue {
             }
 
             try {
-
+                // 把过期消息以延时消息方式重新发给broker，10s之后才能消费。
                 pushConsumer.sendMessageBack(msg, 3);
                 log.info("send expire msg back. topic={}, msgId={}, storeHost={}, queueId={}, queueOffset={}", msg.getTopic(), msg.getMsgId(), msg.getStoreHost(), msg.getQueueId(), msg.getQueueOffset());
                 try {
+                    // 获取写锁
                     this.treeMapLock.writeLock().lockInterruptibly();
                     try {
                         if (!msgTreeMap.isEmpty() && msg.getQueueOffset() == msgTreeMap.firstKey()) {
                             try {
+                                // 将过期消息从本地缓存中的消息列表中移除掉，  Collections.singletonList表示只有一个元素的List集合
                                 removeMessage(Collections.singletonList(msg));
                             } catch (Exception e) {
                                 log.error("send expired msg exception", e);
                             }
                         }
                     } finally {
+                        // 释放写锁
                         this.treeMapLock.writeLock().unlock();
                     }
                 } catch (InterruptedException e) {
@@ -138,10 +142,12 @@ public class ProcessQueue {
     public boolean putMessage(final List<MessageExt> msgs) {
         boolean dispatchToConsume = false;
         try {
+            // 获取写锁
             this.treeMapLock.writeLock().lockInterruptibly();
             try {
                 int validMsgCnt = 0;
                 for (MessageExt msg : msgs) {
+                    // 将消息放入本地缓存红黑树中，key为消息的offset
                     MessageExt old = msgTreeMap.put(msg.getQueueOffset(), msg);
                     if (null == old) {
                         validMsgCnt++;
@@ -153,13 +159,15 @@ public class ProcessQueue {
 
                 if (!msgTreeMap.isEmpty() && !this.consuming) {
                     dispatchToConsume = true;
-                    this.consuming = true;
+                    this.consuming = true;  // 正在被消费
                 }
 
                 if (!msgs.isEmpty()) {
                     MessageExt messageExt = msgs.get(msgs.size() - 1);
+                    // Broker端最大的offset
                     String property = messageExt.getProperty(MessageConst.PROPERTY_MAX_OFFSET);
                     if (property != null) {
+                        // 用本地最大偏移量，与Broker端最大偏移量比较，计算出Broker端还有多少条消息没有拉取到本地
                         long accTotal = Long.parseLong(property) - messageExt.getQueueOffset();
                         if (accTotal > 0) {
                             this.msgAccCnt = accTotal;
