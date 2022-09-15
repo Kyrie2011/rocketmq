@@ -338,13 +338,14 @@ public class ScheduleMessageService extends ConfigManager {
                             long countdown = deliverTimestamp - now;
 
                             if (countdown <= 0) {
+                                // 重试的消息
                                 MessageExt msgExt =
                                     ScheduleMessageService.this.defaultMessageStore.lookMessageByOffset(
                                         offsetPy, sizePy);
 
                                 if (msgExt != null) {
                                     try {
-                                        MessageExtBrokerInner msgInner = this.messageTimeup(msgExt);
+                                        MessageExtBrokerInner msgInner = this.messageTimeup(msgExt); // 恢复备份主题和队列
                                         if (TopicValidator.RMQ_SYS_TRANS_HALF_TOPIC.equals(msgInner.getTopic())) {
                                             log.error("[BUG] the real topic of schedule msg is {}, discard the msg. msg={}",
                                                 msgInner.getTopic(), msgInner);
@@ -352,7 +353,7 @@ public class ScheduleMessageService extends ConfigManager {
                                         }
                                         PutMessageResult putMessageResult =
                                             ScheduleMessageService.this.writeMessageStore
-                                                .putMessage(msgInner);
+                                                .putMessage(msgInner);  // 将 RETRY_GROUP_TOPIC_PREFIX + consumerGroup 的消息putMessage
 
                                         if (putMessageResult != null
                                             && putMessageResult.getPutMessageStatus() == PutMessageStatus.PUT_OK) {
@@ -448,7 +449,7 @@ public class ScheduleMessageService extends ConfigManager {
 
             msgInner.setWaitStoreMsgOK(false);
             MessageAccessor.clearProperty(msgInner, MessageConst.PROPERTY_DELAY_TIME_LEVEL);
-
+            // SCHE_XXXX ->  RETRY_GROUP_TOPIC_PREFIX + consumerGroup;
             msgInner.setTopic(msgInner.getProperty(MessageConst.PROPERTY_REAL_TOPIC));
 
             String queueIdStr = msgInner.getProperty(MessageConst.PROPERTY_REAL_QUEUE_ID);

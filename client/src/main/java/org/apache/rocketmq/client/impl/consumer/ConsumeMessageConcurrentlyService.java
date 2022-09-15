@@ -275,7 +275,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 // ackIndex = 0 时，不会进入for循环（进入循环的条件是ackIndex = -1即消费失败）
                 for (int i = ackIndex + 1; i < consumeRequest.getMsgs().size(); i++) {
                     MessageExt msg = consumeRequest.getMsgs().get(i);
-                    // 回发消息至Broker ？
+                    // 消息失败后，回发消息至Broker
                     boolean result = this.sendMessageBack(msg, context);
                     if (!result) {
                         msg.setReconsumeTimes(msg.getReconsumeTimes() + 1);
@@ -308,8 +308,9 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         int delayLevel = context.getDelayLevelWhenNextConsume();
 
         // Wrap topic with namespace before sending back message.
-        msg.setTopic(this.defaultMQPushConsumer.withNamespace(msg.getTopic()));
+        msg.setTopic(this.defaultMQPushConsumer.withNamespace(msg.getTopic()));  // 设置topic
         try {
+            // 入口
             this.defaultMQPushConsumerImpl.sendMessageBack(msg, delayLevel, context.getMessageQueue().getBrokerName());
             return true;
         } catch (Exception e) {

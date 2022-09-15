@@ -246,7 +246,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             responseHeader.setNextBeginOffset(getMessageResult.getNextBeginOffset());
             responseHeader.setMinOffset(getMessageResult.getMinOffset());
             responseHeader.setMaxOffset(getMessageResult.getMaxOffset());
-
+            // 不在pageCache范围内，可以从slave中读取数据
             if (getMessageResult.isSuggestPullingFromSlave()) {
                 responseHeader.setSuggestWhichBrokerId(subscriptionGroupConfig.getWhichBrokerWhenConsumeSlowly());
             } else {
@@ -391,7 +391,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         response.setBody(r);
                     } else {
                         try {
-                            // Netty的Zero-Copy
+                            // Netty的Zero-Copy（sendFile）
                             FileRegion fileRegion =
                                 new ManyMessageTransfer(response.encodeHeader(getMessageResult.getBufferTotalSize()), getMessageResult);
                             channel.writeAndFlush(fileRegion).addListener(new ChannelFutureListener() {

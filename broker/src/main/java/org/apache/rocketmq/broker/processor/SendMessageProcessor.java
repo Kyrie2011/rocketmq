@@ -90,6 +90,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         final SendMessageContext mqtraceContext;
         switch (request.getCode()) {
             case RequestCode.CONSUMER_SEND_MSG_BACK:
+                // 处理消费者发回的消息
                 return this.asyncConsumerSendMsgBack(ctx, request);
             default:
                 // 解析请求
@@ -144,7 +145,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             response.setRemark(null);
             return CompletableFuture.completedFuture(response);
         }
-
+        // 创建新的topic："%RETRY%"+consumeGroup
         String newTopic = MixAll.getRetryTopic(requestHeader.getGroup());
         int queueIdInt = ThreadLocalRandom.current().nextInt(99999999) % subscriptionGroupConfig.getRetryQueueNums();
         int topicSysFlag = 0;
@@ -167,6 +168,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             response.setRemark(String.format("the topic[%s] sending message is forbidden", newTopic));
             return CompletableFuture.completedFuture(response);
         }
+        // 原始message
         MessageExt msgExt = this.brokerController.getMessageStore().lookMessageByOffset(requestHeader.getOffset());
         if (null == msgExt) {
             response.setCode(ResponseCode.SYSTEM_ERROR);
@@ -180,7 +182,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         }
         msgExt.setWaitStoreMsgOK(false);
 
-        int delayLevel = requestHeader.getDelayLevel();
+        int delayLevel = requestHeader.getDelayLevel();  // 初始为0
 
         int maxReconsumeTimes = subscriptionGroupConfig.getRetryMaxTimes();
         if (request.getVersion() >= MQVersion.Version.V3_4_9.ordinal()) {
@@ -207,13 +209,14 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             msgExt.setDelayTimeLevel(0);
         } else {
             if (0 == delayLevel) {
+                // 延迟级别
                 delayLevel = 3 + msgExt.getReconsumeTimes();
             }
             msgExt.setDelayTimeLevel(delayLevel);
         }
-
+        // 基于原始消息构造出重试消息
         MessageExtBrokerInner msgInner = new MessageExtBrokerInner();
-        msgInner.setTopic(newTopic);
+        msgInner.setTopic(newTopic);  // 设置新的topic ->  RETRY_GROUP_TOPIC_PREFIX + consumerGroup;
         msgInner.setBody(msgExt.getBody());
         msgInner.setFlag(msgExt.getFlag());
         MessageAccessor.setProperties(msgInner, msgExt.getProperties());
@@ -225,6 +228,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         msgInner.setBornTimestamp(msgExt.getBornTimestamp());
         msgInner.setBornHost(msgExt.getBornHost());
         msgInner.setStoreHost(msgExt.getStoreHost());
+        // 重试次数+1
         msgInner.setReconsumeTimes(msgExt.getReconsumeTimes() + 1);
 
         String originMsgId = MessageAccessor.getOriginMessageId(msgExt);
