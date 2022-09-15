@@ -598,6 +598,7 @@ public class DefaultMessageStore implements MessageStore {
                             // 计算offsetPy/sizePy的值
                             long offsetPy = bufferConsumeQueue.getByteBuffer().getLong();  // CommitLog的物理地址
                             int sizePy = bufferConsumeQueue.getByteBuffer().getInt();
+                            // Tag的Hash值
                             long tagsCode = bufferConsumeQueue.getByteBuffer().getLong();
 
                             maxPhyOffsetPulling = offsetPy;
@@ -627,6 +628,7 @@ public class DefaultMessageStore implements MessageStore {
                                 }
                             }
 
+                            // 消息过滤
                             if (messageFilter != null
                                 && !messageFilter.isMatchedByConsumeQueue(isTagsCodeLegal ? tagsCode : null, extRet ? cqExtUnit : null)) {
                                 if (getResult.getBufferTotalSize() == 0) {

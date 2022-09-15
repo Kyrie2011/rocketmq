@@ -353,7 +353,7 @@ public class ScheduleMessageService extends ConfigManager {
                                         }
                                         PutMessageResult putMessageResult =
                                             ScheduleMessageService.this.writeMessageStore
-                                                .putMessage(msgInner);  // 将 RETRY_GROUP_TOPIC_PREFIX + consumerGroup 的消息putMessage
+                                                .putMessage(msgInner);  // 将Topic为 'RETRY_GROUP_TOPIC_PREFIX + consumerGroup' 的消息，putMessage存入CommitLog中
 
                                         if (putMessageResult != null
                                             && putMessageResult.getPutMessageStatus() == PutMessageStatus.PUT_OK) {

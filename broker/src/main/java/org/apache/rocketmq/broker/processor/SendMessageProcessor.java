@@ -178,6 +178,8 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
         final String retryTopic = msgExt.getProperty(MessageConst.PROPERTY_RETRY_TOPIC);
         if (null == retryTopic) {
+            // msgExt.getTopic() -> 原始消息的topic，放入PROPERTY_RETRY_TOPIC属性中 msg.putProperty(RETRY_TOPIC, msgExt.getTopic());
+            // 以便从retry_topic的消息中还原其real_topic
             MessageAccessor.putProperty(msgExt, MessageConst.PROPERTY_RETRY_TOPIC, msgExt.getTopic());
         }
         msgExt.setWaitStoreMsgOK(false);
@@ -219,7 +221,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         msgInner.setTopic(newTopic);  // 设置新的topic ->  RETRY_GROUP_TOPIC_PREFIX + consumerGroup;
         msgInner.setBody(msgExt.getBody());
         msgInner.setFlag(msgExt.getFlag());
-        MessageAccessor.setProperties(msgInner, msgExt.getProperties());
+        MessageAccessor.setProperties(msgInner, msgExt.getProperties());  // “原始msg”部分属性复制到“新的msg”属性中
         msgInner.setPropertiesString(MessageDecoder.messageProperties2String(msgExt.getProperties()));
         msgInner.setTagsCode(MessageExtBrokerInner.tagsString2tagsCode(null, msgExt.getTags()));
 

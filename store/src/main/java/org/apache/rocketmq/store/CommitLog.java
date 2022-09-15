@@ -624,16 +624,16 @@ public class CommitLog {
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
                     msg.setDelayTimeLevel(this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel());
                 }
-
+                // 延迟消息，则要重新设置msg的Topic -> "SCHEDULE_TOPIC_XXXX"
                 topic = TopicValidator.RMQ_SYS_SCHEDULE_TOPIC;
-                queueId = ScheduleMessageService.delayLevel2QueueId(msg.getDelayTimeLevel());
+                queueId = ScheduleMessageService.delayLevel2QueueId(msg.getDelayTimeLevel());  // 延迟ConsumeQueue的队列编号
 
                 // Backup real topic, queueId
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_TOPIC, msg.getTopic());
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_QUEUE_ID, String.valueOf(msg.getQueueId()));
                 msg.setPropertiesString(MessageDecoder.messageProperties2String(msg.getProperties()));
 
-                msg.setTopic(topic);
+                msg.setTopic(topic); // 重新设置msg的Topic -> "SCHEDULE_TOPIC_XXXX"
                 msg.setQueueId(queueId);
             }
         }
