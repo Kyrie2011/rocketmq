@@ -435,7 +435,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
         int sysFlag = PullSysFlag.buildSysFlag(
             commitOffsetEnable, // commitOffset
-            true, // suspend
+            true, // suspend  suspend的标志
             subExpression != null, // subscription
             classFilter // class filter
         );

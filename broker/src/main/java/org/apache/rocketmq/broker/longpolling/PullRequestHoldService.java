@@ -68,7 +68,9 @@ public class PullRequestHoldService extends ServiceThread {
         log.info("{} service started", this.getServiceName());
         while (!this.isStopped()) {
             try {
+                // 是否开启长轮询配置：isLongPollingEnable
                 if (this.brokerController.getBrokerConfig().isLongPollingEnable()) {
+                    // Broker端后台异步线程，间隔waiting 5s
                     this.waitForRunning(5 * 1000);
                 } else {
                     this.waitForRunning(this.brokerController.getBrokerConfig().getShortPollingTimeMills());
@@ -130,7 +132,8 @@ public class PullRequestHoldService extends ServiceThread {
                         newestOffset = this.brokerController.getMessageStore().getMaxOffsetInQueue(topic, queueId);
                     }
                     // 待拉取消息的偏移量是否小于消费队列最大偏移量，如果条件成立则说明有新消息达到Broker端
-                    if (newestOffset > request.getPullFromThisOffset()) {
+                    if (newestOffset > request.getPullFromThisOffset()) {  //  request.getPullFromThisOffset() hold住的request对应的消费偏移
+                        // Broker端基于Tag的hash值，消息过滤：isMatchedByConsumeQueue
                         boolean match = request.getMessageFilter().isMatchedByConsumeQueue(tagsCode,
                             new ConsumeQueueExt.CqExtUnit(tagsCode, msgStoreTime, filterBitMap));
                         // match by bit map, need eval again when properties is not null.
@@ -140,7 +143,7 @@ public class PullRequestHoldService extends ServiceThread {
 
                         if (match) {
                             try {
-                                // 重新尝试发起Pull消息的RPC请求
+                                // 有匹配的消息后，重新尝试发起Pull消息的RPC请求
                                 this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
                                     request.getRequestCommand());
                             } catch (Throwable e) {
@@ -150,6 +153,7 @@ public class PullRequestHoldService extends ServiceThread {
                         }
                     }
 
+                    // 没有消息达到时，判断长轮询时间是否超时，超时也会执行Pull消息请求
                     if (System.currentTimeMillis() >= (request.getSuspendTimestamp() + request.getTimeoutMillis())) {
                         try {
                             this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
@@ -160,10 +164,18 @@ public class PullRequestHoldService extends ServiceThread {
                         continue;
                     }
 
+                    /**
+                     * (1) 没有匹配的新消息到达
+                     * 或者
+                     * (2) 长轮询请求超时
+                     *
+                     * 将剩余不满足条件的request重新放入到pullRequestTable中
+                     */
                     replayList.add(request);
                 }
 
                 if (!replayList.isEmpty()) {
+                    // 将剩余不满足条件的request重新放入到pullRequestTable中
                     mpr.addPullRequest(replayList);
                 }
             }

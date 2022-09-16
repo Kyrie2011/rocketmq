@@ -81,7 +81,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
     @Override
     public RemotingCommand processRequest(final ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
-        // 处理拉取消息的请求
+        // 处理拉取消息的请求，默认设置brokerAllowSuspend=true
         return this.processRequest(ctx.channel(), request, true);
     }
 
@@ -120,12 +120,12 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             response.setRemark("subscription group no permission, " + requestHeader.getConsumerGroup());
             return response;
         }
-
+        // Consumer端是否设置suspend为true
         final boolean hasSuspendFlag = PullSysFlag.hasSuspendFlag(requestHeader.getSysFlag());
         final boolean hasCommitOffsetFlag = PullSysFlag.hasCommitOffsetFlag(requestHeader.getSysFlag());
         final boolean hasSubscriptionFlag = PullSysFlag.hasSubscriptionFlag(requestHeader.getSysFlag());
 
-        final long suspendTimeoutMillisLong = hasSuspendFlag ? requestHeader.getSuspendTimeoutMillis() : 0;
+        final long suspendTimeoutMillisLong = hasSuspendFlag ? requestHeader.getSuspendTimeoutMillis() : 0;  // requestHeader.getSuspendTimeoutMillis() -> 长轮询超时时间
 
         TopicConfig topicConfig = this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());
         if (null == topicConfig) {
@@ -157,7 +157,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                 subscriptionData = FilterAPI.build(
                     requestHeader.getTopic(), requestHeader.getSubscription(), requestHeader.getExpressionType()
                 );
-                if (!ExpressionType.isTagType(subscriptionData.getExpressionType())) {  // 消息过滤
+                if (!ExpressionType.isTagType(subscriptionData.getExpressionType())) {
                     consumerFilterData = ConsumerFilterManager.build(
                         requestHeader.getTopic(), requestHeader.getConsumerGroup(), requestHeader.getSubscription(),
                         requestHeader.getExpressionType(), requestHeader.getSubVersion()
@@ -187,7 +187,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                 response.setRemark("the consumer group[" + requestHeader.getConsumerGroup() + "] can not consume by broadcast way");
                 return response;
             }
-            // TODO broker中的订阅信息（什么时候上报的？ 心跳检测？）
+            // TODO broker中的订阅信息（什么时候上报的 -> 心跳检测）
             subscriptionData = consumerGroupInfo.findSubscriptionData(requestHeader.getTopic());
             if (null == subscriptionData) {
                 log.warn("the consumer's subscription not exist, group: {}, topic:{}", requestHeader.getConsumerGroup(), requestHeader.getTopic());
@@ -246,7 +246,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             responseHeader.setNextBeginOffset(getMessageResult.getNextBeginOffset());
             responseHeader.setMinOffset(getMessageResult.getMinOffset());
             responseHeader.setMaxOffset(getMessageResult.getMaxOffset());
-            // 不在pageCache范围内，可以从slave中读取数据
+            // 不在pageCache范围内，建议从slave中读取数据 (避免pageCache的切换开销)
             if (getMessageResult.isSuggestPullingFromSlave()) {
                 responseHeader.setSuggestWhichBrokerId(subscriptionGroupConfig.getWhichBrokerWhenConsumeSlowly());
             } else {
@@ -349,7 +349,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         break;
                     case ResponseCode.PULL_NOT_FOUND:
                         if (!brokerAllowSuspend) {
-
+                            // 长轮询之后还是没有消息达到情况，不会再hold住请求
                             context.setCommercialRcvStats(BrokerStatsManager.StatsType.RCV_EPOLLS);
                             context.setCommercialRcvTimes(1);
                             context.setCommercialOwner(owner);
@@ -413,7 +413,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                     break;
                 // 未拉取到消息（hold住请求）
                 case ResponseCode.PULL_NOT_FOUND:
-
+                    // brokerAllowSuspend = true
                     if (brokerAllowSuspend && hasSuspendFlag) {
                         long pollingTimeMills = suspendTimeoutMillisLong;
                         if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {
@@ -423,10 +423,11 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         String topic = requestHeader.getTopic();
                         long offset = requestHeader.getQueueOffset();
                         int queueId = requestHeader.getQueueId();
+                        // Broker端新建一个PullRequest，将该请求放入pullRequestTable的map中（key: topic@queueId, value: List<PullRequest>）
                         PullRequest pullRequest = new PullRequest(request, channel, pollingTimeMills,
                             this.brokerController.getMessageStore().now(), offset, subscriptionData, messageFilter);
                         // hold住并且挂起该请求
-                        this.brokerController.getPullRequestHoldService().suspendPullRequest(topic, queueId, pullRequest);
+                        this.brokerController.getPullRequestHoldService().suspendPullRequest(topic, queueId, pullRequest);   // 服务端PullRequestHoldService线程异步处理
                         // 设置response为null，此时不会向Consumer端发送任何响应的内容，即不会对响应结果进行处理
                         response = null;
                         break;
@@ -558,18 +559,20 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
 
     public void executeRequestWhenWakeup(final Channel channel,
         final RemotingCommand request) throws RemotingCommandException {
+        // 新建Runnable
         Runnable run = new Runnable() {
             @Override
             public void run() {
                 try {
                     // 通过业务线程池PullMessageProcessor，异步提交重新Pull消息的请求任务
-                    // 重新调了一次PullMessageProcessor业务处理器的processRequest()方法，来实现Pull消息请求的二次处理
+                    // 重新调了一次PullMessageProcessor业务处理器的processRequest()方法，来实现Pull消息请求的二次处理。注意，此时 brokerAllowSuspend = false
                     final RemotingCommand response = PullMessageProcessor.this.processRequest(channel, request, false);
 
                     if (response != null) {
                         response.setOpaque(request.getOpaque());
                         response.markResponseType();
                         try {
+                            // 响应写回Consumer端
                             channel.writeAndFlush(response).addListener(new ChannelFutureListener() {
                                 @Override
                                 public void operationComplete(ChannelFuture future) throws Exception {
