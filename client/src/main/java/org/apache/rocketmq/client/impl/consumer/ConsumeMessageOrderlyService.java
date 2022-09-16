@@ -91,6 +91,10 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
+                    /**
+                     * 顺序消费模式下，会向master Broker发起锁定当前节点所有消费队列（注意不是消息队列）请求，加锁成功则重新设置获得锁时间
+                     * 加锁失败则更新本地锁状态，该锁状态会向影响到后续的消费行为。
+                     */
                     ConsumeMessageOrderlyService.this.lockMQPeriodically();
                 }
             }, 1000 * 1, ProcessQueue.REBALANCE_LOCK_INTERVAL, TimeUnit.MILLISECONDS);

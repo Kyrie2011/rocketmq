@@ -609,6 +609,7 @@ public class MQClientInstance {
                         final String consumerGroup = consumer.groupName();
                         final String className = sub.getSubString();
                         final String topic = sub.getTopic();
+                        // filterClassSource为通过MixAll#file2String转换为String类型的MessageFilterImpl.java文件
                         final String filterClassSource = sub.getFilterClassSource();
                         try {
                             // 上传过滤器类至FilterServer

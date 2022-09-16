@@ -86,6 +86,12 @@ public class ProcessQueue {
      * @param pushConsumer
      */
     public void cleanExpiredMsg(DefaultMQPushConsumer pushConsumer) {
+        /**
+         * 并发消费模式下，才需要清理消费超时消息，就会被重新投递到重试队列中
+         *
+         * 顺序消费模式下，没有超时概念，消费失败后会重新放入msgTreeMap反复重试，直到超过最大重试次数后重新投递
+         */
+
         // 顺序消费不清理过期消息
         if (pushConsumer.getDefaultMQPushConsumerImpl().isConsumeOrderly()) {
             return;
@@ -97,6 +103,7 @@ public class ProcessQueue {
             try {
                 this.treeMapLock.readLock().lockInterruptibly();
                 try {
+                    // 消费超时判断：当前时间戳 - 消息的开始消费时间 > 设置的消费超时时间
                     if (!msgTreeMap.isEmpty() && System.currentTimeMillis() - Long.parseLong(MessageAccessor.getConsumeStartTimeStamp(msgTreeMap.firstEntry().getValue())) > pushConsumer.getConsumeTimeout() * 60 * 1000) {
                         msg = msgTreeMap.firstEntry().getValue();
                     } else {
@@ -111,6 +118,7 @@ public class ProcessQueue {
             }
 
             try {
+                // 如果消费超时，直接放到delayLevel=3的延迟队列
                 // 把过期消息以延时消息方式重新发给broker，10s之后才能消费。
                 pushConsumer.sendMessageBack(msg, 3);
                 log.info("send expire msg back. topic={}, msgId={}, storeHost={}, queueId={}, queueOffset={}", msg.getTopic(), msg.getMsgId(), msg.getStoreHost(), msg.getQueueId(), msg.getQueueOffset());
@@ -120,7 +128,7 @@ public class ProcessQueue {
                     try {
                         if (!msgTreeMap.isEmpty() && msg.getQueueOffset() == msgTreeMap.firstKey()) {
                             try {
-                                // 将过期消息从本地缓存中的消息列表中移除掉，  Collections.singletonList表示只有一个元素的List集合
+                                // 将过期消息从本地缓存msgTreeMap中的消息列表中移除掉，  Collections.singletonList表示只有一个元素的List集合
                                 removeMessage(Collections.singletonList(msg));
                             } catch (Exception e) {
                                 log.error("send expired msg exception", e);
