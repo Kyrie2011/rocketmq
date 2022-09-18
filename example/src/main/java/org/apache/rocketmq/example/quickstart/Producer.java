@@ -35,10 +35,10 @@ public class Producer {
         // 启动生产者实例
         producer.start();
 
-        for (int i = 0; i < 2000; i++) {
+        for (int i = 0; i < 2; i++) {
             try {
                 // 创建消息，并指定Topic，Tag和消息体
-                Message msg = new Message("TopicTest1" /* Topic */,
+                Message msg = new Message("TopicTest" /* Topic */,
                         "TagA" /* Tag */,
                         ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
                 );

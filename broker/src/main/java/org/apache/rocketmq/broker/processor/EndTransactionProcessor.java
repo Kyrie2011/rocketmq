@@ -62,7 +62,7 @@ public class EndTransactionProcessor extends AsyncNettyRequestProcessor implemen
             LOGGER.warn("Message store is slave mode, so end transaction is forbidden. ");
             return response;
         }
-
+        // 判断是END_TRANSACTION请求是本地事务提交，还是消息回查的方式发起的
         if (requestHeader.getFromTransactionCheck()) {
             switch (requestHeader.getCommitOrRollback()) {
                 case MessageSysFlag.TRANSACTION_NOT_TYPE: {
@@ -124,18 +124,30 @@ public class EndTransactionProcessor extends AsyncNettyRequestProcessor implemen
         }
         OperationResult result = new OperationResult();
         if (MessageSysFlag.TRANSACTION_COMMIT_TYPE == requestHeader.getCommitOrRollback()) {
+            // commitMessage提交消息。真实的逻辑是根据传过来的commitLogOffset从CommitLog获取half消息。
             result = this.brokerController.getTransactionalMessageService().commitMessage(requestHeader);
             if (result.getResponseCode() == ResponseCode.SUCCESS) {
+                // 检查合法性
                 RemotingCommand res = checkPrepareMessage(result.getPrepareMessage(), requestHeader);
                 if (res.getCode() == ResponseCode.SUCCESS) {
+                    // 还原half message真实的topic、queueId
                     MessageExtBrokerInner msgInner = endMessageTransaction(result.getPrepareMessage());
+                    // sysFlag设置为TRANSACTION_COMMIT_TYPE
                     msgInner.setSysFlag(MessageSysFlag.resetTransactionValue(msgInner.getSysFlag(), requestHeader.getCommitOrRollback()));
                     msgInner.setQueueOffset(requestHeader.getTranStateTableOffset());
                     msgInner.setPreparedTransactionOffset(requestHeader.getCommitLogOffset());
                     msgInner.setStoreTimestamp(result.getPrepareMessage().getStoreTimestamp());
                     MessageAccessor.clearProperty(msgInner, MessageConst.PROPERTY_TRANSACTION_PREPARED);
+                    // 将还原后的消息重新落盘，然后经过dispatch后，构建对应的ConsumeQueue和indexFile，此时该message对Consumer可见
                     RemotingCommand sendResult = sendFinalMessage(msgInner);
                     if (sendResult.getCode() == ResponseCode.SUCCESS) {
+                        // 删除half消息（并非从磁盘真正删除）
+                        /**
+                         * 构建一个Message放入RMQ_SYS_TRANS_OP_HALF_TOPIC队列，queueId为对应half消息的queueId
+                         * Message的消息内容为对应half消息的queueOffset，并将TAGS属性设置为“d”。
+                         *
+                         * 相对于一个标志，记录该half消息被逻辑删除
+                         */
                         this.brokerController.getTransactionalMessageService().deletePrepareMessage(result.getPrepareMessage());
                     }
                     return sendResult;
@@ -143,10 +155,17 @@ public class EndTransactionProcessor extends AsyncNettyRequestProcessor implemen
                 return res;
             }
         } else if (MessageSysFlag.TRANSACTION_ROLLBACK_TYPE == requestHeader.getCommitOrRollback()) {
+            // rollbackMessage
             result = this.brokerController.getTransactionalMessageService().rollbackMessage(requestHeader);
             if (result.getResponseCode() == ResponseCode.SUCCESS) {
                 RemotingCommand res = checkPrepareMessage(result.getPrepareMessage(), requestHeader);
                 if (res.getCode() == ResponseCode.SUCCESS) {
+                    /**
+                     * 构建一个Message放入RMQ_SYS_TRANS_OP_HALF_TOPIC队列，queueId为对应half消息的queueId
+                     * Message的消息内容为对应half消息的queueOffset，并将TAGS属性设置为“d”。
+                     *
+                     * 相对于一个标志，记录该half消息被逻辑删除
+                     */
                     this.brokerController.getTransactionalMessageService().deletePrepareMessage(result.getPrepareMessage());
                 }
                 return res;
