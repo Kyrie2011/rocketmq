@@ -37,7 +37,7 @@ public class Consumer {
         consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
 
         // 订阅一个或者多个Topic，以及Tag来过滤需要消费的消息
-        consumer.subscribe("TopicTest1", "*");
+        consumer.subscribe("TopicTest", "*");
 
         // 注册回调实现类，来处理从broker拉取回来的消息
         consumer.registerMessageListener(new MessageListenerConcurrently() {
@@ -53,7 +53,7 @@ public class Consumer {
 
         // 启动消费者实例
         consumer.start();
-
+        Thread.sleep(1000000);
         System.out.printf("Consumer Started.%n");
     }
 }

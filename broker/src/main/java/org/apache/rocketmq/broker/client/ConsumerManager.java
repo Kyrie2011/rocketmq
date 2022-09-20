@@ -112,6 +112,7 @@ public class ConsumerManager {
         boolean r1 =
             consumerGroupInfo.updateChannel(clientChannelInfo, consumeType, messageModel,
                 consumeFromWhere);
+        // 更新订阅信息，订阅信息是按照消费组存放的，因此这步骤就会导致同一个消费组内的各个消费者客户端的订阅信息相互被覆盖
         boolean r2 = consumerGroupInfo.updateSubscription(subList);
 
         if (r1 || r2) {

@@ -187,7 +187,9 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         final ProcessQueue processQueue,
         final MessageQueue messageQueue,
         final boolean dispatchToConsume) {
-        // 一次最大拉取多少个消息，默认是1
+        // msgs.size() , 默认一次性拉取 pullBatchSize(默认32) 参数指定的消息数量
+
+        // 一次最大消费多少个消息，默认是1
         final int consumeBatchSize = this.defaultMQPushConsumer.getConsumeMessageBatchMaxSize();
         if (msgs.size() <= consumeBatchSize) {
             // 构建ConsumeRequest请求，如果consumeBatchSize是1则创建一个Runnable，消费1个msg
@@ -207,7 +209,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                         break;
                     }
                 }
-                // 若consumeBatchSize是32，则创建一个Runnable提交到线程池，消费32个msg（若msgs.size()为64，则创建2个ConsumeRequest放入线程池中）
+                // 若consumeBatchSize是3，则创建一个Runnable提交到线程池，一次消费3个msg（若msgs.size()为6，则创建2个ConsumeRequest放入线程池中）
                 ConsumeRequest consumeRequest = new ConsumeRequest(msgThis, processQueue, messageQueue);
                 try {
                     this.consumeExecutor.submit(consumeRequest);

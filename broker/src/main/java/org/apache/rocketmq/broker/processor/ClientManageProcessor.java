@@ -85,8 +85,9 @@ public class ClientManageProcessor extends AsyncNettyRequestProcessor implements
             request.getVersion()
         );
 
-        // 消费者数据
+        // 循环注册消费者订阅信息
         for (ConsumerData data : heartbeatData.getConsumerDataSet()) {
+            // 按消费者组获取订阅配置信息
             SubscriptionGroupConfig subscriptionGroupConfig =
                 this.brokerController.getSubscriptionGroupManager().findSubscriptionGroupConfig(
                     data.getGroupName());
@@ -104,7 +105,7 @@ public class ClientManageProcessor extends AsyncNettyRequestProcessor implements
                     subscriptionGroupConfig.getRetryQueueNums(),
                     PermName.PERM_WRITE | PermName.PERM_READ, topicSysFlag);
             }
-            // 利用心跳数据的核心，向Broker注册Consumer的信息
+            // 利用心跳数据的核心，向Broker注册Consumer的订阅信息
             boolean changed = this.brokerController.getConsumerManager().registerConsumer(
                 data.getGroupName(),
                 clientChannelInfo,

@@ -259,6 +259,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
 
             @Override
             public void run() {
+                // 定时器调度
                 ConsumeMessageOrderlyService.this.submitConsumeRequest(null, processQueue, messageQueue, true);
             }
         }, timeMillis, TimeUnit.MILLISECONDS);
@@ -282,10 +283,11 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                     commitOffset = consumeRequest.getProcessQueue().commit();
                     this.getConsumerStatsManager().incConsumeOKTPS(consumerGroup, consumeRequest.getMessageQueue().getTopic(), msgs.size());
                     break;
-                case SUSPEND_CURRENT_QUEUE_A_MOMENT:
+                case SUSPEND_CURRENT_QUEUE_A_MOMENT:   // 顺序消息消费失败
                     this.getConsumerStatsManager().incConsumeFailedTPS(consumerGroup, consumeRequest.getMessageQueue().getTopic(), msgs.size());
-                    if (checkReconsumeTimes(msgs)) {
+                    if (checkReconsumeTimes(msgs)) {  // 检查消息重新消费次数
                         consumeRequest.getProcessQueue().makeMessageToConsumeAgain(msgs);
+                        //
                         this.submitConsumeRequestLater(
                             consumeRequest.getProcessQueue(),
                             consumeRequest.getMessageQueue(),
@@ -316,7 +318,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                     break;
                 case SUSPEND_CURRENT_QUEUE_A_MOMENT:
                     this.getConsumerStatsManager().incConsumeFailedTPS(consumerGroup, consumeRequest.getMessageQueue().getTopic(), msgs.size());
-                    if (checkReconsumeTimes(msgs)) {
+                    if (checkReconsumeTimes(msgs)) { // 检查消息重新消费次数
                         consumeRequest.getProcessQueue().makeMessageToConsumeAgain(msgs);
                         this.submitConsumeRequestLater(
                             consumeRequest.getProcessQueue(),
@@ -354,7 +356,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
         boolean suspend = false;
         if (msgs != null && !msgs.isEmpty()) {
             for (MessageExt msg : msgs) {
-                if (msg.getReconsumeTimes() >= getMaxReconsumeTimes()) {
+                if (msg.getReconsumeTimes() >= getMaxReconsumeTimes()) { // default reconsume times: Integer.MAX_VALUE
                     MessageAccessor.setReconsumeTime(msg, String.valueOf(msg.getReconsumeTimes()));
                     if (!sendMessageBack(msg)) {
                         suspend = true;
@@ -378,7 +380,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
             newMsg.setFlag(msg.getFlag());
             MessageAccessor.setProperties(newMsg, msg.getProperties());
             MessageAccessor.putProperty(newMsg, MessageConst.PROPERTY_RETRY_TOPIC, msg.getTopic());
-            MessageAccessor.setReconsumeTime(newMsg, String.valueOf(msg.getReconsumeTimes()));
+            MessageAccessor.setReconsumeTime(newMsg, String.valueOf(msg.getReconsumeTimes())); // 超过最大重新消费次数，发送到死信队列。
             MessageAccessor.setMaxReconsumeTimes(newMsg, String.valueOf(getMaxReconsumeTimes()));
             MessageAccessor.clearProperty(newMsg, MessageConst.PROPERTY_TRANSACTION_PREPARED);
             newMsg.setDelayTimeLevel(3 + msg.getReconsumeTimes());
@@ -483,13 +485,14 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                             ConsumeReturnType returnType = ConsumeReturnType.SUCCESS;
                             boolean hasException = false;
                             try {
+                                // 加锁
                                 this.processQueue.getConsumeLock().lock();
                                 if (this.processQueue.isDropped()) {
                                     log.warn("consumeMessage, the message queue not be able to consume, because it's dropped. {}",
                                         this.messageQueue);
                                     break;
                                 }
-
+                                // 调用本地实现的MessageListenerOrderly
                                 status = messageListener.consumeMessage(Collections.unmodifiableList(msgs), context);
                             } catch (Throwable e) {
                                 log.warn(String.format("consumeMessage exception: %s Group: %s Msgs: %s MQ: %s",
@@ -499,6 +502,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                                     messageQueue), e);
                                 hasException = true;
                             } finally {
+                                // 释放锁
                                 this.processQueue.getConsumeLock().unlock();
                             }
 
@@ -543,7 +547,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
 
                             ConsumeMessageOrderlyService.this.getConsumerStatsManager()
                                 .incConsumeRT(ConsumeMessageOrderlyService.this.consumerGroup, messageQueue.getTopic(), consumeRT);
-
+                            // 处理顺序消息消费结果
                             continueConsume = ConsumeMessageOrderlyService.this.processConsumeResult(msgs, status, context, this);
                         } else {
                             continueConsume = false;

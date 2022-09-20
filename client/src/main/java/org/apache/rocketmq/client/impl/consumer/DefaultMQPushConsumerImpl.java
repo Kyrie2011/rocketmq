@@ -1021,7 +1021,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     @Override
     public Set<SubscriptionData> subscriptions() {
         Set<SubscriptionData> subSet = new HashSet<SubscriptionData>();
-
+        // 启动的时候会copy到rebalanceImpl中
         subSet.addAll(this.rebalanceImpl.getSubscriptionInner().values());
 
         return subSet;

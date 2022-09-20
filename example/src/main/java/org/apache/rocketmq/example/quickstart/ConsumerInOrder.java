@@ -19,7 +19,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class ConsumerInOrder {
     public static void main(String[] args) throws Exception {
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("order_top_activity_consumer");
+       // DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("order_top_activity_consumer");
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("test_consumer_group");
         consumer.setNamesrvAddr("127.0.0.1:9876");
         /**
          * 设置Consumer第一次启动是从队列头部开始消费还是队列尾部开始消费<br>
@@ -52,7 +53,7 @@ public class ConsumerInOrder {
         });
 
         consumer.start();
-
+        Thread.sleep(1000000);
         System.out.println("Consumer Started.");
     }
 }

@@ -312,6 +312,7 @@ public class ProcessQueue {
             this.treeMapLock.writeLock().lockInterruptibly();
             try {
                 for (MessageExt msg : msgs) {
+                    // 从consumingMsgOrderlyTreeMap中移除
                     this.consumingMsgOrderlyTreeMap.remove(msg.getQueueOffset());
                     this.msgTreeMap.put(msg.getQueueOffset(), msg);
                 }
