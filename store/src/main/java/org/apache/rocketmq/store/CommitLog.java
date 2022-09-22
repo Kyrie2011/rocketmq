@@ -671,6 +671,7 @@ public class CommitLog {
             msg.setStoreTimestamp(beginLockTimestamp);
 
             if (null == mappedFile || mappedFile.isFull()) {
+                // 一开始Broker初次启动时，还没有CommitLog文件，mappedFile == null
                 // 重点：已经满了，则通过allocateMappedFileService 创建并分配一个映射文件
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
@@ -1323,7 +1324,7 @@ public class CommitLog {
             final MessageExtBrokerInner msgInner, PutMessageContext putMessageContext) {
             // STORETIMESTAMP + STOREHOSTADDRESS + OFFSET <br>
 
-            // PHY OFFSET
+            // PHY OFFSET 消息的物理偏移量
             long wroteOffset = fileFromOffset + byteBuffer.position();
 
             Supplier<String> msgIdSupplier = () -> {
@@ -1338,7 +1339,7 @@ public class CommitLog {
 
             // Record ConsumeQueue information
             String key = putMessageContext.getTopicQueueTableKey();
-            Long queueOffset = CommitLog.this.topicQueueTable.get(key);
+            Long queueOffset = CommitLog.this.topicQueueTable.get(key);// 为重建ConsumeQueue中逻辑偏移offset做准备
             if (null == queueOffset) {
                 queueOffset = 0L;
                 CommitLog.this.topicQueueTable.put(key, queueOffset);
@@ -1381,7 +1382,7 @@ public class CommitLog {
 
             int pos = 4 + 4 + 4 + 4 + 4;
             // 6 QUEUEOFFSET
-            preEncodeBuffer.putLong(pos, queueOffset);
+            preEncodeBuffer.putLong(pos, queueOffset);  // 消息在该队列中的逻辑偏移量
             pos += 8;
             // 7 PHYSICALOFFSET
             preEncodeBuffer.putLong(pos, fileFromOffset + byteBuffer.position());
@@ -1406,7 +1407,7 @@ public class CommitLog {
                 case MessageSysFlag.TRANSACTION_NOT_TYPE:
                 case MessageSysFlag.TRANSACTION_COMMIT_TYPE:
                     // The next update ConsumeQueue information
-                    CommitLog.this.topicQueueTable.put(key, ++queueOffset);
+                    CommitLog.this.topicQueueTable.put(key, ++queueOffset);  // ++queueOffset -> 更新为下一个消息的偏移量
                     break;
                 default:
                     break;
@@ -1421,7 +1422,7 @@ public class CommitLog {
             long wroteOffset = fileFromOffset + byteBuffer.position();
             // Record ConsumeQueue information
             String key = putMessageContext.getTopicQueueTableKey();
-            Long queueOffset = CommitLog.this.topicQueueTable.get(key);
+            Long queueOffset = CommitLog.this.topicQueueTable.get(key);  // 消息逻辑偏移，为重建ConsumeQueue做准备
             if (null == queueOffset) {
                 queueOffset = 0L;
                 CommitLog.this.topicQueueTable.put(key, queueOffset);

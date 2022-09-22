@@ -151,13 +151,16 @@ public class AllocateMappedFileService extends ServiceThread {
         boolean isSuccess = false;
         AllocateRequest req = null;
         try {
+            // 从队列获取分配请求
             req = this.requestQueue.take();
+            // requestTable key -> filePath, value -> 是分配的请求AllocateRequest
             AllocateRequest expectedRequest = this.requestTable.get(req.getFilePath());
             if (null == expectedRequest) {
                 log.warn("this mmap request expired, maybe cause timeout " + req.getFilePath() + " "
                     + req.getFileSize());
                 return true;
             }
+            // 检验是否一致，同一个对象
             if (expectedRequest != req) {
                 log.warn("never expected here,  maybe cause timeout " + req.getFilePath() + " "
                     + req.getFileSize() + ", req:" + req + ", expectedRequest:" + expectedRequest);
@@ -168,6 +171,10 @@ public class AllocateMappedFileService extends ServiceThread {
                 long beginTime = System.currentTimeMillis();
 
                 MappedFile mappedFile;
+                /**
+                 * 创建MappedFile的 两种方式
+                 */
+                // 第一种，开启堆外内存池，从TransientStorePool堆外内存池中获取相应的DirectByteBuffer来构建MappedFile。相比第一种方式多了一层，可实现读写分离
                 if (messageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
                     try {
                         // SPI机制 创建mappedFile对象
@@ -179,6 +186,7 @@ public class AllocateMappedFileService extends ServiceThread {
                         mappedFile = new MappedFile(req.getFilePath(), req.getFileSize(), messageStore.getTransientStorePool());
                     }
                 } else {
+                    //第二种，使用Mmap的方式，创建MappedFile对象
                     mappedFile = new MappedFile(req.getFilePath(), req.getFileSize());
                 }
 
@@ -196,7 +204,7 @@ public class AllocateMappedFileService extends ServiceThread {
                     this.messageStore.getMessageStoreConfig().isWarmMapedFileEnable()) {
                     /**
                      * TODO
-                     * 因为创建MappedFile时，通过mmap映射，只是建立了进程虚拟内存地址与物理内存地址之间的映射关系，并没有将PageCache加载至内存。实际未分配物理内存
+                     * 因为创建MappedFile时，通过mmap映射，只是建立了进程虚拟内存地址与磁盘之间的映射关系，实际未分配物理内存
                      * 读写数据时如果没有命中写PageCache则发生缺页中断，从磁盘重新加载数据至内存，这样会影响读写性能。
                      * 为了防止缺页异常，阻止操作系统将相关的内存页调度到交换空间（swap space），RocketMQ 通过对文件预热
                      */

@@ -130,7 +130,9 @@ public class MessageClientIDSetter {
     }
 
     public static void setUniqID(final Message msg) {
+        // 已经有msgId就不会再生成了，当消息发送失败且重试的时候，消息的msgId是不变的
         if (msg.getProperty(MessageConst.PROPERTY_UNIQ_CLIENT_MESSAGE_ID_KEYIDX) == null) {
+            // producer端生成msgID
             msg.putProperty(MessageConst.PROPERTY_UNIQ_CLIENT_MESSAGE_ID_KEYIDX, createUniqID());
         }
     }

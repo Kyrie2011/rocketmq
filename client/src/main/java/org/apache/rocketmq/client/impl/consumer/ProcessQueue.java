@@ -147,6 +147,13 @@ public class ProcessQueue {
         }
     }
 
+    /**
+     *
+     * @param msgs
+     * @return dispatchToConsume该返回值针对于顺序消费，当dispatchToConsume == true，表示顺序消费服务需要提交一个消费任务到消费线程。
+     * 反之，不提交。而控制dispatchToConsume == true，是当consuming == false的时候，
+     * 也就是当顺序消费服务把msgTreeMap的消息都消息完了之后才会再次向消费线程池中提交消费任务，这样就可以保证消息的顺序消费
+     */
     public boolean putMessage(final List<MessageExt> msgs) {
         boolean dispatchToConsume = false;
         try {
@@ -165,7 +172,7 @@ public class ProcessQueue {
                 }
                 msgCount.addAndGet(validMsgCnt);
 
-                if (!msgTreeMap.isEmpty() && !this.consuming) {
+                if (!msgTreeMap.isEmpty() && !this.consuming) {  // 首次调用 this.consuming= false， takeMessages -> consuming
                     dispatchToConsume = true;
                     this.consuming = true;  // 正在被消费
                 }
@@ -314,6 +321,7 @@ public class ProcessQueue {
                 for (MessageExt msg : msgs) {
                     // 从consumingMsgOrderlyTreeMap中移除
                     this.consumingMsgOrderlyTreeMap.remove(msg.getQueueOffset());
+                    // 重新将消费加入到msgTreeMap中
                     this.msgTreeMap.put(msg.getQueueOffset(), msg);
                 }
             } finally {
@@ -344,6 +352,7 @@ public class ProcessQueue {
                 }
 
                 if (result.isEmpty()) {
+                    // 当msgTreeMap中的消息都被消费完了的时候，此时consuming就重置为false
                     consuming = false;
                 }
             } finally {

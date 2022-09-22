@@ -204,7 +204,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
         final MessageQueue messageQueue,
         final boolean dispathToConsume) {
         if (dispathToConsume) {
-            // 构建ConsumeRequest请求
+            // 构建ConsumeRequest请求，保证一个消费线程对应一个messageQueue
             ConsumeRequest consumeRequest = new ConsumeRequest(processQueue, messageQueue);
             this.consumeExecutor.submit(consumeRequest);
         }
@@ -271,6 +271,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
         final ConsumeOrderlyContext context,
         final ConsumeRequest consumeRequest
     ) {
+        // 控制外层的消费任务是否继续执行
         boolean continueConsume = true;
         long commitOffset = -1L;
         if (context.isAutoCommit()) {
@@ -287,7 +288,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                     this.getConsumerStatsManager().incConsumeFailedTPS(consumerGroup, consumeRequest.getMessageQueue().getTopic(), msgs.size());
                     if (checkReconsumeTimes(msgs)) {  // 检查消息重新消费次数
                         consumeRequest.getProcessQueue().makeMessageToConsumeAgain(msgs);
-                        //
+                        // dispathToConsume默认为true;
                         this.submitConsumeRequestLater(
                             consumeRequest.getProcessQueue(),
                             consumeRequest.getMessageQueue(),
@@ -431,6 +432,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                 if (MessageModel.BROADCASTING.equals(ConsumeMessageOrderlyService.this.defaultMQPushConsumerImpl.messageModel())
                     || (this.processQueue.isLocked() && !this.processQueue.isLockExpired())) {
                     final long beginTime = System.currentTimeMillis();
+                    // 当消费失败时，后续消费任务不在继续执行。continueConsume = false 【等待新提交的消费任务去对消费失败的消息进行重试】
                     for (boolean continueConsume = true; continueConsume; ) {
                         if (this.processQueue.isDropped()) {
                             log.warn("the message queue not be able to consume, because it's dropped. {}", this.messageQueue);
@@ -459,7 +461,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
 
                         final int consumeBatchSize =
                             ConsumeMessageOrderlyService.this.defaultMQPushConsumer.getConsumeMessageBatchMaxSize();
-
+                        // 顺序消费从本地msgTreeMap中获取msg进行消费
                         List<MessageExt> msgs = this.processQueue.takeMessages(consumeBatchSize);
                         defaultMQPushConsumerImpl.resetRetryAndNamespace(msgs, defaultMQPushConsumer.getConsumerGroup());
                         if (!msgs.isEmpty()) {

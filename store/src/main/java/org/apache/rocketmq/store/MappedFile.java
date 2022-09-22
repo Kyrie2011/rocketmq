@@ -71,11 +71,13 @@ public class MappedFile extends ReferenceResource {
     }
 
     public MappedFile(final String fileName, final int fileSize) throws IOException {
+        // 第二种方式
         init(fileName, fileSize);
     }
 
     public MappedFile(final String fileName, final int fileSize,
         final TransientStorePool transientStorePool) throws IOException {
+        // 第一种方式
         init(fileName, fileSize, transientStorePool);
     }
 
@@ -160,9 +162,10 @@ public class MappedFile extends ReferenceResource {
         ensureDirOK(this.file.getParent());
 
         try {
-            this.fileChannel = new RandomAccessFile(this.file, "rw").getChannel();
-            // mmap内存映射
-            this.mappedByteBuffer = this.fileChannel.map(MapMode.READ_WRITE, 0, fileSize);
+            this.fileChannel = new RandomAccessFile(this.file, "rw").getChannel();  // 生成一个commitLog文件，C:\Users\wanxinghua\store\commitlog\00000000000000000000
+            // 通过FileChannel类的map() -> map0 方法，建立"虚拟内存"与地址commitLog文件物理地址的映射表，而实际并没有加载任何文件至内存中。mmap内存映射
+            // 缺页中断之后，发起磁盘IO将文件加载进内存，并建立虚拟内存与pageCache之间的关联。
+            this.mappedByteBuffer = this.fileChannel.map(MapMode.READ_WRITE, 0, fileSize); // mappedByteBuffer -> DirectBufferBuffer实例（堆外内存）
             TOTAL_MAPPED_VIRTUAL_MEMORY.addAndGet(fileSize);
             TOTAL_MAPPED_FILES.incrementAndGet();
             ok = true;
@@ -205,10 +208,11 @@ public class MappedFile extends ReferenceResource {
             PutMessageContext putMessageContext) {
         assert messageExt != null;
         assert cb != null;
-
+        // 当前写入buffer的位置 -> 消息的物理偏移
         int currentPos = this.wrotePosition.get();
 
         if (currentPos < this.fileSize) {
+            //mappedByteBuffer ->  java.nio.DirectByteBuffer[pos=0 lim=1073741824 cap=1073741824] 堆外内存
             ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();
             byteBuffer.position(currentPos);
             AppendMessageResult result;

@@ -337,8 +337,10 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                                     pullRequest.getMessageQueue().getTopic(), pullResult.getMsgFoundList().size());
 
                                 // 将Pull下来的消息，设置到ProcessQueue的msgTreeMap容器中（本地缓存）
+                                // 可以根据返回的dispatchToConsume去决定是否需要向消费线程池中提交消费任务，该变量用于保证顺序消费
                                 boolean dispatchToConsume = processQueue.putMessage(pullResult.getMsgFoundList());
                                 // 将封装好的ConsumeRequest提交至消费端消费线程池异步处理
+                                // 把消费者自定义过滤后的消息交给消费服务（并发消费或者顺序消费）去进行处理，里面包括回调执行自定义的消费业务逻辑
                                 DefaultMQPushConsumerImpl.this.consumeMessageService.submitConsumeRequest(
                                     pullResult.getMsgFoundList(),
                                     processQueue,
