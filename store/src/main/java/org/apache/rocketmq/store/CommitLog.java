@@ -735,7 +735,6 @@ public class CommitLog {
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
 
         // 主从同步
-
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
 
         // 返回putMessageResult
@@ -893,6 +892,7 @@ public class CommitLog {
         // Asynchronous flush 异步刷盘
         else {
             if (!this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
+                // 异步刷盘
                 flushCommitLogService.wakeup();
             } else  {
                 // 开启堆外内存的异步刷盘
@@ -1066,7 +1066,7 @@ public class CommitLog {
                     long end = System.currentTimeMillis();
                     if (!result) {
                         this.lastCommitTimestamp = end; // result = false means some data committed.
-                        //now wake up flush thread.
+                        //now wake up 异步刷盘线程 flush thread.
                         // 唤醒flushCommitLogService 进行强制刷盘
                         flushCommitLogService.wakeup();
                     }
@@ -1127,6 +1127,7 @@ public class CommitLog {
                     }
 
                     long begin = System.currentTimeMillis();
+                    //刷盘
                     CommitLog.this.mappedFileQueue.flush(flushPhysicQueueLeastPages);
                     long storeTimestamp = CommitLog.this.mappedFileQueue.getStoreTimestamp();
                     if (storeTimestamp > 0) {
@@ -1236,8 +1237,11 @@ public class CommitLog {
                 for (GroupCommitRequest req : this.requestsRead) {
                     // There may be a message in the next file, so a maximum of
                     // two times the flush
+                    // 是否已经刷过盘了
                     boolean flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
-                    for (int i = 0; i < 2 && !flushOK; i++) {
+                    // 只有flushOK = false才进入循环
+                    for (int i = 0; i < 2 && !flushOK; i++) {  // 为什么刷盘两次
+                        // 刷盘
                         CommitLog.this.mappedFileQueue.flush(0);
                         flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
                     }
@@ -1327,6 +1331,7 @@ public class CommitLog {
             // PHY OFFSET 消息的物理偏移量
             long wroteOffset = fileFromOffset + byteBuffer.position();
 
+            // 生成messageId
             Supplier<String> msgIdSupplier = () -> {
                 int sysflag = msgInner.getSysFlag();
                 int msgIdLen = (sysflag & MessageSysFlag.STOREHOSTADDRESS_V6_FLAG) == 0 ? 4 + 4 + 8 : 16 + 4 + 8;
