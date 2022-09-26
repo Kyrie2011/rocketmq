@@ -33,8 +33,8 @@ public class HAConnection {
     private final HAService haService;
     private final SocketChannel socketChannel;
     private final String clientAddr;
-    private WriteSocketService writeSocketService;
-    private ReadSocketService readSocketService;
+    private WriteSocketService writeSocketService; // 写数据线程
+    private ReadSocketService readSocketService;   // 读数据线程
 
     private volatile long slaveRequestOffset = -1;
     private volatile long slaveAckOffset = -1;
